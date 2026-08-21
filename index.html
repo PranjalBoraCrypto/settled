@@ -354,6 +354,17 @@ function esc(s) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// Reads one market's status straight from the chain. Used to confirm a write
+// actually landed rather than believing the transaction receipt.
+async function marketStatus(id) {
+  try {
+    const m = await readClient.readContract({
+      address: contractAddress(), functionName: 'get_market', args: [id],
+    });
+    return String(m?.status || '');
+  } catch (e) { return null; }
+}
+
 async function load() {
   const addr = contractAddress();
   if (!addr) { say('No address', 'Paste the deployed contract address first.', 'err'); return; }
@@ -411,7 +422,7 @@ function render(markets) {
 }
 
 // ---------- writes ----------
-async function send(fn, args, note) {
+async function send(fn, args, note, verify) {
   if (!writeClient) { say('Not connected', 'Connect your wallet first.', 'err'); return false; }
   const addr = contractAddress();
   if (!addr) { say('No address', 'Paste the deployed contract address first.', 'err'); return false; }
@@ -439,7 +450,25 @@ async function send(fn, args, note) {
       return false;
     }
 
-    say('Done', `<a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">View transaction →</a>`, 'ok');
+    // A receipt is not proof the write landed. An undetermined transaction comes
+    // back looking successful while changing nothing, so the only honest check is
+    // to read the state back and see whether it actually moved.
+    if (verify) {
+      const moved = await verify();
+      if (!moved) {
+        say('No consensus \u2014 nothing was written',
+          `The validators read the source and did not all reach the same answer, so the
+           contract refused to record one. Your market is unchanged and can be tried again.
+           <br><br>This is the safety property working, not a crash: for an oracle, no answer
+           beats a wrong answer.<br><br>
+           <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">See the validator votes \u2192</a>`,
+          'err');
+        await load();
+        return false;
+      }
+    }
+
+    say('Done', `<a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">View transaction \u2192</a>`, 'ok');
     await load();
     return true;
   } catch (e) {
@@ -461,10 +490,14 @@ document.getElementById('markets').addEventListener('click', async (ev) => {
   const id = btn.dataset.id;
 
   if (btn.dataset.act === 'resolve') {
-    await send('resolve', [id], 'Each validator will read the source and judge it independently.');
+    const before = await marketStatus(id);
+    await send('resolve', [id], 'Each validator will read the source and judge it independently.',
+      async () => (await marketStatus(id)) !== before);
   }
   if (btn.dataset.act === 'adjudicate') {
-    await send('adjudicate', [id], 'Re-judging with the objection placed in front of the validators.');
+    const before = await marketStatus(id);
+    await send('adjudicate', [id], 'Re-judging with the objection placed in front of the validators.',
+      async () => (await marketStatus(id)) !== before);
   }
   if (btn.dataset.act === 'dispute') {
     const reason = prompt('What is wrong with this resolution? Be specific — the validators will read it.');
@@ -487,13 +520,13 @@ document.getElementById('demo').addEventListener('click', () => {
   // sits in the opening sentence. A JavaScript-heavy source is a bad source here:
   // validators fetch it independently, and if they receive different amounts of
   // rendered content they will honestly disagree, and the market will not settle.
-  document.getElementById('f-id').value = 'polymarket-definition';
-  document.getElementById('f-q').value = 'Does the source describe Polymarket as a prediction market?';
+  document.getElementById('f-id').value = 'settled-self-description';
+  document.getElementById('f-q').value = 'Does the source describe Settled as an adjudication oracle for prediction markets?';
   document.getElementById('f-c').value =
-    'YES if the source describes Polymarket as a prediction market or a prediction market platform. ' +
-    'NO if the source describes it as something other than a prediction market. ' +
-    'UNRESOLVED if the source does not mention Polymarket.';
-  document.getElementById('f-url').value = 'https://en.wikipedia.org/wiki/Polymarket';
+    'YES if the source describes Settled as an oracle, or as a system that resolves or adjudicates ' +
+    'prediction market questions. NO if it describes Settled as something else entirely. ' +
+    'UNRESOLVED if the source does not mention Settled.';
+  document.getElementById('f-url').value = 'https://raw.githubusercontent.com/PranjalBoraCrypto/settled/main/README.md';
 });
 </script>
 </body>
