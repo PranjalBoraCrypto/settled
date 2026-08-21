@@ -131,6 +131,10 @@
   .toast .m { color:var(--ink-soft); line-height:1.55; word-break:break-word }
   .toast.err .t { color:#FF6B6B }
   .toast.ok  .t { color:var(--ok) }
+  .toast .t { justify-content:space-between }
+  #toast-x { display:none; background:none; border:none; color:var(--ink-soft);
+             font-size:20px; line-height:1; cursor:pointer; padding:0 2px; margin-left:auto }
+  #toast-x:hover { color:var(--ink) }
 
   footer { margin:74px 0 46px; padding-top:22px; border-top:1px solid var(--line);
            font-size:12.5px; color:var(--asphalt); display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap }
@@ -244,7 +248,8 @@
 </div>
 
 <div class="toast" id="toast">
-  <div class="t"><span id="toast-spin"></span><span id="toast-title">Working</span></div>
+  <div class="t"><span id="toast-spin"></span><span id="toast-title">Working</span>
+    <button id="toast-x" aria-label="Dismiss">&times;</button></div>
   <div class="m" id="toast-msg"></div>
 </div>
 
@@ -282,7 +287,10 @@ function say(title, msg, kind = '') {
   tMsg.innerHTML = msg || '';
   tSpin.innerHTML = '';
   if (!kind) { tSpin.setAttribute('data-spin', '16'); tSpin.removeAttribute('data-done'); stampSpinners(toast); }
-  if (kind) toastTimer = setTimeout(() => toast.classList.remove('show'), 9000);
+  // Success messages fade; errors stay put until dismissed. An error you cannot
+  // read is worse than no error at all.
+  document.getElementById('toast-x').style.display = kind === 'err' ? 'block' : 'none';
+  if (kind === 'ok') toastTimer = setTimeout(() => toast.classList.remove('show'), 9000);
 }
 function hush() { clearTimeout(toastTimer); toast.classList.remove('show'); }
 
@@ -337,6 +345,7 @@ async function connect() {
     say('Connection failed', esc(e.message || String(e)), 'err');
   }
 }
+document.getElementById('toast-x').addEventListener('click', hush);
 document.getElementById('connect').addEventListener('click', connect);
 
 // ---------- reads ----------
@@ -474,13 +483,17 @@ document.getElementById('create').addEventListener('click', async () => {
 });
 
 document.getElementById('demo').addEventListener('click', () => {
-  document.getElementById('f-id').value = 'gl-bradbury-live';
-  document.getElementById('f-q').value = 'Is GenLayer Testnet Bradbury described as live and running on its own documentation?';
+  // The example deliberately points at a server-rendered page whose decisive fact
+  // sits in the opening sentence. A JavaScript-heavy source is a bad source here:
+  // validators fetch it independently, and if they receive different amounts of
+  // rendered content they will honestly disagree, and the market will not settle.
+  document.getElementById('f-id').value = 'polymarket-definition';
+  document.getElementById('f-q').value = 'Does the source describe Polymarket as a prediction market?';
   document.getElementById('f-c').value =
-    'YES if the page describes Bradbury as an available, running network that contracts can be deployed to. ' +
-    'NO if the page states Bradbury is not yet live or has been retired. ' +
-    'UNRESOLVED if the page does not mention Bradbury at all.';
-  document.getElementById('f-url').value = 'https://docs.genlayer.com/developers/networks';
+    'YES if the source describes Polymarket as a prediction market or a prediction market platform. ' +
+    'NO if the source describes it as something other than a prediction market. ' +
+    'UNRESOLVED if the source does not mention Polymarket.';
+  document.getElementById('f-url').value = 'https://en.wikipedia.org/wiki/Polymarket';
 });
 </script>
 </body>
