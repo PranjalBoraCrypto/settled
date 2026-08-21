@@ -3,30 +3,216 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Settled — adjudication oracle for prediction markets</title>
-<meta name="description" content="An on-chain oracle that settles ambiguous prediction-market questions. GenLayer validators independently read the source and must agree on the outcome.">
+<title>Settled — the record</title>
+<meta name="description" content="An adjudication oracle for ambiguous prediction-market questions. GenLayer validators read the source independently and must agree before anything is recorded.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  /* ============================================================
+     Settled — a record of judgements.
+     The visual language is documentary rather than dashboard: this
+     is a ledger of verdicts, so it is set like one. Paper, rules,
+     stamped outcomes, evidence quoted and attributed.
+     ============================================================ */
   :root {
-    --cobalt:#4F4DFF; --cobalt-hi:#7C7AFF; --void:#070707; --ceramic:#F5F5F5;
-    --ok:#00FF66; --err:#FF2B2B; --chassis:#CACACA; --asphalt:#606060; --graphite:#303030;
-    --bg:#070707; --surface:#0F0F10; --surface-2:#151517;
-    --line:rgba(245,245,245,.11); --ink:#F5F5F5; --ink-soft:#9A9A9E;
+    --paper:      #F6F5F1;
+    --leaf:       #FFFFFE;
+    --leaf-2:     #EFEEE8;
+    --ink:        #16161A;
+    --ink-2:      #4E4E58;
+    --ink-3:      #82828C;
+    --rule:       #DCDBD3;
+    --rule-2:     #C6C5BB;
+    --seal:       #110FFF;   /* Kinetic Cobalt — the official stamp */
+    --seal-soft:  #E7E7FF;
+    --yes:        #1B6E3C;
+    --yes-soft:   #E4F0E8;
+    --no:         #A32020;
+    --no-soft:    #F7E6E6;
+    --null:       #5A5A64;
+    --null-soft:  #EAEAE6;
+    --appeal:     #8A5A00;
+    --appeal-soft:#F7EEDC;
   }
-  * { box-sizing:border-box }
-  body {
-    margin:0; background:var(--bg); color:var(--ink);
-    font-family:Inter,ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased; line-height:1.5;
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:    #121316;
+      --leaf:     #191A1E;
+      --leaf-2:   #212228;
+      --ink:      #ECEBE5;
+      --ink-2:    #A9A9B2;
+      --ink-3:    #7A7A84;
+      --rule:     #2A2B31;
+      --rule-2:   #3A3B43;
+      --seal:     #8280FF;
+      --seal-soft:#1D1D33;
+      --yes:      #4FD07E;
+      --yes-soft: #12251A;
+      --no:       #FF7B7B;
+      --no-soft:  #2A1717;
+      --null:     #90909A;
+      --null-soft:#22232A;
+      --appeal:   #E0A64A;
+      --appeal-soft:#2A2113;
+    }
   }
-  .mono,code,input,textarea { font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace }
-  .wrap { max-width:1000px; margin:0 auto; padding:0 22px }
-  a { color:var(--cobalt-hi) }
 
-  /* ---- the Consensus Spinner, reused from the sibling mission ---- */
-  .gl { --c:#7C7AFF; --g:#00FF66; --t:rgba(124,122,255,.20); --d:rgba(124,122,255,.36); display:block }
+  * { box-sizing: border-box }
+  html { -webkit-text-size-adjust: 100% }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: Newsreader, Georgia, "Times New Roman", serif;
+    font-size: 17px; line-height: 1.62; font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 28px }
+  a { color: var(--seal); text-underline-offset: 3px; text-decoration-thickness: .06em }
+  :focus-visible { outline: 2px solid var(--seal); outline-offset: 3px }
+
+  /* ---------------- masthead ---------------- */
+  .masthead { border-bottom: 1px solid var(--ink); background: var(--paper);
+              position: sticky; top: 0; z-index: 30 }
+  .masthead .wrap { display: flex; align-items: center; gap: 18px; padding: 13px 28px }
+  .wordmark { display: flex; align-items: center; gap: 11px; font-family: "Instrument Serif", Georgia, serif;
+              font-size: 25px; letter-spacing: -.01em; line-height: 1 }
+  .grow { flex: 1 }
+  .acct { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-2);
+          border: 1px solid var(--rule-2); padding: 5px 10px; display: flex; align-items: center; gap: 8px }
+  .lamp { width: 6px; height: 6px; background: var(--rule-2); border-radius: 50% }
+  .lamp.on { background: var(--yes) }
+
+  button {
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; font-weight: 500;
+    letter-spacing: .07em; text-transform: uppercase; cursor: pointer;
+    background: var(--leaf); color: var(--ink); border: 1px solid var(--ink);
+    padding: 9px 15px; border-radius: 0; transition: background .12s, color .12s;
+  }
+  button:hover:not(:disabled) { background: var(--ink); color: var(--paper) }
+  button:disabled { opacity: .35; cursor: not-allowed }
+  button.seal { background: var(--seal); border-color: var(--seal); color: #fff }
+  button.seal:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); color: var(--paper) }
+  button.quiet { border-color: var(--rule-2); color: var(--ink-2) }
+  button.quiet:hover:not(:disabled) { background: var(--ink-2); color: var(--paper) }
+
+  /* ---------------- opening statement ---------------- */
+  .opening { padding: 74px 0 8px; border-bottom: 1px solid var(--rule) }
+  .filed { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .18em;
+           text-transform: uppercase; color: var(--ink-3); margin-bottom: 26px }
+  h1 { font-family: "Instrument Serif", Georgia, serif; font-weight: 400;
+       font-size: clamp(42px, 7vw, 74px); line-height: 1.02; letter-spacing: -.018em;
+       margin: 0 0 26px; text-wrap: balance; max-width: 21ch }
+  h1 em { font-style: italic; color: var(--seal) }
+  .standfirst { font-size: 19.5px; line-height: 1.6; color: var(--ink-2); max-width: 60ch; margin: 0 0 34px }
+  .standfirst strong { color: var(--ink); font-weight: 600 }
+
+  .grounds { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+             gap: 0; border-top: 1px solid var(--rule); margin-bottom: 40px }
+  .ground { padding: 22px 26px 26px; border-right: 1px solid var(--rule) }
+  .ground:first-child { padding-left: 0 }
+  .ground:last-child { border-right: none }
+  .ground h3 { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .13em;
+               text-transform: uppercase; color: var(--seal); margin: 0 0 10px; font-weight: 500 }
+  .ground p { margin: 0; font-size: 15.5px; line-height: 1.58; color: var(--ink-2) }
+  @media (max-width: 700px) { .ground { border-right: none; border-bottom: 1px solid var(--rule); padding: 20px 0 } }
+
+  /* ---------------- docket bar ---------------- */
+  .docket { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;
+            padding: 26px 0 30px; border-bottom: 1px solid var(--rule) }
+  .docket .f { flex: 1; min-width: 300px }
+  label { display: block; font-family: "IBM Plex Mono", monospace; font-size: 10.5px;
+          letter-spacing: .13em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px }
+  input, textarea {
+    width: 100%; background: var(--leaf); border: 1px solid var(--rule-2); color: var(--ink);
+    padding: 11px 13px; font-family: "IBM Plex Mono", monospace; font-size: 13px; border-radius: 0;
+  }
+  textarea { font-family: Newsreader, Georgia, serif; font-size: 15.5px; min-height: 78px;
+             resize: vertical; line-height: 1.55 }
+  input:focus, textarea:focus { outline: none; border-color: var(--seal) }
+
+  /* ---------------- section rules ---------------- */
+  h2 { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; font-size: 30px;
+       letter-spacing: -.01em; margin: 58px 0 6px; display: flex; align-items: baseline; gap: 14px }
+  h2 .n { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-3); letter-spacing: .1em }
+  .seclede { color: var(--ink-3); font-size: 15px; margin: 0 0 26px; max-width: 62ch; font-style: italic }
+
+  /* ---------------- case records ---------------- */
+  .records { display: flex; flex-direction: column; gap: 0 }
+  .record { border-top: 1px solid var(--ink); padding: 30px 0 34px }
+  .record:last-child { border-bottom: 1px solid var(--rule) }
+  .rhead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px }
+  .no-ref { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-3);
+            letter-spacing: .04em; margin-left: auto }
+
+  .stamp { font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 500;
+           letter-spacing: .14em; text-transform: uppercase; padding: 5px 10px;
+           border: 1.5px solid currentColor }
+  .stamp.YES        { color: var(--yes);    background: var(--yes-soft) }
+  .stamp.NO         { color: var(--no);     background: var(--no-soft) }
+  .stamp.UNRESOLVED { color: var(--null);   background: var(--null-soft) }
+  .phase { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .13em;
+           text-transform: uppercase; color: var(--ink-3) }
+  .phase b { color: var(--ink); font-weight: 500 }
+
+  .question { font-family: "Instrument Serif", Georgia, serif; font-weight: 400;
+              font-size: clamp(23px, 3vw, 29px); line-height: 1.22; letter-spacing: -.01em;
+              margin: 0 0 20px; max-width: 30ch }
+
+  .entry { display: grid; grid-template-columns: 132px 1fr; gap: 22px; padding: 11px 0;
+           border-top: 1px solid var(--rule) }
+  .entry dt { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .12em;
+              text-transform: uppercase; color: var(--ink-3); padding-top: 4px }
+  .entry dd { margin: 0; font-size: 16px; line-height: 1.58; color: var(--ink-2) }
+  .entry dd a { word-break: break-all }
+  @media (max-width: 620px) { .entry { grid-template-columns: 1fr; gap: 5px } }
+
+  blockquote { margin: 0; padding-left: 18px; border-left: 2px solid var(--seal);
+               font-style: italic; font-size: 17.5px; line-height: 1.5; color: var(--ink) }
+
+  /* the annotation that stops a correct null result reading as breakage */
+  .note { margin-top: 20px; border: 1px solid var(--rule-2); background: var(--leaf-2); padding: 17px 19px }
+  .note .lbl { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em;
+               text-transform: uppercase; color: var(--appeal); display: block; margin-bottom: 8px }
+  .note p { margin: 0 0 9px; font-size: 15px; line-height: 1.56; color: var(--ink-2) }
+  .note p:last-child { margin-bottom: 0 }
+
+  .acts { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; align-items: center }
+  .closed { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .1em;
+            text-transform: uppercase; color: var(--ink-3) }
+
+  .empty { border: 1px dashed var(--rule-2); padding: 58px 26px; text-align: center; color: var(--ink-3) }
+  .empty p { margin: 16px 0 0; font-style: italic }
+
+  /* ---------------- filing form ---------------- */
+  .filing { border: 1px solid var(--ink); padding: 30px; background: var(--leaf) }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 18px }
+  @media (max-width: 700px) { .pair { grid-template-columns: 1fr } }
+  .field { margin-top: 18px }
+
+  /* ---------------- clerk's notice ---------------- */
+  .notice { position: fixed; right: 22px; bottom: 22px; z-index: 60; max-width: 400px;
+            background: var(--leaf); border: 1px solid var(--ink); padding: 17px 19px; display: none;
+            box-shadow: 6px 6px 0 var(--rule) }
+  .notice.show { display: block }
+  .notice .nh { display: flex; align-items: center; gap: 11px; margin-bottom: 8px;
+                font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .12em;
+                text-transform: uppercase; font-weight: 500 }
+  .notice .nb { font-size: 15px; line-height: 1.55; color: var(--ink-2); word-break: break-word }
+  .notice.err .nh { color: var(--no) }
+  .notice.ok  .nh { color: var(--yes) }
+  #notice-x { margin-left: auto; background: none; border: none; color: var(--ink-3);
+              font-size: 17px; padding: 0 2px; display: none; letter-spacing: 0 }
+  #notice-x:hover { background: none; color: var(--ink) }
+
+  footer { margin: 76px 0 60px; padding-top: 24px; border-top: 1px solid var(--ink);
+           display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+           font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .05em;
+           text-transform: uppercase; color: var(--ink-3) }
+
+  /* ---------------- the consensus spinner ---------------- */
+  .gl { --c: var(--seal); --g: var(--yes); --t: color-mix(in srgb, var(--seal) 22%, transparent);
+        --d: color-mix(in srgb, var(--seal) 42%, transparent); display: block }
   .gl-track{fill:none;stroke:var(--t);stroke-width:2.5}
   .gl-sweep{fill:none;stroke:var(--c);stroke-width:2.5;stroke-linecap:round;stroke-dasharray:24 79.67;stroke-dashoffset:24}
   .gl-base{fill:var(--d)} .gl-lit{fill:var(--c);opacity:0} .gl-ok{fill:var(--g);opacity:0}
@@ -44,100 +230,7 @@
   @keyframes gl-consensus{0%,83%{opacity:0}88%,93%{opacity:1}100%{opacity:0}}
   @keyframes gl-halo{0%,83%{opacity:0;transform:scale(.9)}89%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.14)}}
   @keyframes gl-core{0%,83%{opacity:0;transform:scale(.2)}90%,95%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.3)}}
-  @media (prefers-reduced-motion:reduce){
-    .gl-rot,.gl-lit,.gl-ok,.gl-halo,.gl-core{animation:none} .gl-lit{opacity:1}
-  }
-
-  /* ---- chrome ---- */
-  header { border-bottom:1px solid var(--line); background:rgba(7,7,7,.86); backdrop-filter:blur(10px);
-           position:sticky; top:0; z-index:20 }
-  .bar { display:flex; align-items:center; gap:14px; padding:14px 0 }
-  .brand { display:flex; align-items:center; gap:11px; font-weight:700; letter-spacing:-.02em; font-size:17px }
-  .spacer { flex:1 }
-  .net { font-size:11.5px; color:var(--ink-soft); border:1px solid var(--line); border-radius:99px;
-         padding:5px 11px; display:flex; align-items:center; gap:7px }
-  .pip { width:6px; height:6px; border-radius:50%; background:var(--asphalt) }
-  .pip.on { background:var(--ok) }
-
-  button {
-    font:inherit; font-size:13.5px; font-weight:600; cursor:pointer; border-radius:8px;
-    border:1px solid var(--line); background:var(--surface-2); color:var(--ink); padding:9px 15px;
-    transition:border-color .15s, background .15s;
-  }
-  button:hover:not(:disabled) { border-color:var(--cobalt); background:#1b1b20 }
-  button:disabled { opacity:.42; cursor:not-allowed }
-  button.primary { background:var(--cobalt); border-color:var(--cobalt); color:#fff }
-  button.primary:hover:not(:disabled) { background:#5f5dff; border-color:#5f5dff }
-  button.sm { padding:6px 11px; font-size:12.5px }
-
-  .hero { padding:52px 0 34px }
-  h1 { font-size:clamp(30px,5.2vw,48px); line-height:1.06; letter-spacing:-.03em; margin:0 0 16px; font-weight:700 }
-  .lede { font-size:16.5px; color:var(--ink-soft); max-width:66ch; margin:0 }
-  .lede strong { color:var(--ink); font-weight:500 }
-
-  .callout { margin-top:26px; border:1px solid var(--line); border-left:2px solid var(--cobalt);
-             background:var(--surface); border-radius:10px; padding:16px 18px; font-size:14px; color:var(--ink-soft) }
-  .callout b { color:var(--ink) }
-
-  .cfg { display:flex; gap:9px; align-items:center; flex-wrap:wrap; margin:26px 0 0 }
-  input, textarea, select {
-    background:var(--surface); border:1px solid var(--line); color:var(--ink);
-    border-radius:8px; padding:9px 12px; font-size:13px; width:100%;
-  }
-  input:focus, textarea:focus { outline:none; border-color:var(--cobalt) }
-  textarea { resize:vertical; min-height:64px; line-height:1.55 }
-  label { display:block; font-size:11px; letter-spacing:.09em; text-transform:uppercase;
-          color:var(--ink-soft); margin:0 0 6px; font-weight:600 }
-
-  h2 { font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft);
-       font-weight:600; margin:52px 0 18px; padding-bottom:12px; border-bottom:1px solid var(--line);
-       display:flex; align-items:center; gap:12px }
-  h2 .count { color:var(--cobalt-hi) }
-
-  .grid { display:grid; gap:14px }
-  .card { border:1px solid var(--line); border-radius:12px; background:var(--surface); padding:20px }
-  .card .q { font-size:16.5px; font-weight:600; letter-spacing:-.01em; margin:0 0 10px }
-  .meta { display:flex; gap:9px; align-items:center; flex-wrap:wrap; margin-bottom:14px }
-  .pill { font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; font-weight:700;
-          padding:4px 9px; border-radius:5px; border:1px solid }
-  .pill.OPEN     { color:var(--chassis); border-color:var(--line) }
-  .pill.RESOLVED { color:var(--cobalt-hi); border-color:rgba(124,122,255,.4) }
-  .pill.DISPUTED { color:#FFB020; border-color:rgba(255,176,32,.4) }
-  .pill.FINAL    { color:var(--ok); border-color:rgba(0,255,102,.35) }
-  .out { font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-weight:700;
-         padding:4px 9px; border-radius:5px }
-  .out.YES { background:rgba(0,255,102,.13); color:var(--ok) }
-  .out.NO  { background:rgba(255,43,43,.13); color:#FF6B6B }
-  .out.UNRESOLVED { background:rgba(245,245,245,.07); color:var(--ink-soft) }
-  .id { font-size:11.5px; color:var(--asphalt) }
-
-  .field { margin:12px 0 }
-  .field .k { font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--asphalt); margin-bottom:5px }
-  .field .v { font-size:14px; color:var(--ink-soft); line-height:1.6 }
-  .quote { border-left:2px solid var(--line); padding-left:12px; font-style:italic; color:var(--chassis) }
-  .acts { display:flex; gap:8px; margin-top:16px; padding-top:15px; border-top:1px solid var(--line); flex-wrap:wrap }
-
-  .empty { border:1px dashed var(--line); border-radius:12px; padding:52px 22px; text-align:center; color:var(--ink-soft) }
-  .empty p { margin:14px 0 0; font-size:14px }
-
-  .two { display:grid; grid-template-columns:1fr 1fr; gap:14px }
-  @media (max-width:720px){ .two { grid-template-columns:1fr } }
-
-  .toast { position:fixed; right:18px; bottom:18px; z-index:50; max-width:380px;
-           border:1px solid var(--line); border-radius:11px; background:var(--surface-2);
-           padding:14px 16px; font-size:13.5px; display:none; box-shadow:0 12px 32px rgba(0,0,0,.55) }
-  .toast.show { display:block }
-  .toast .t { font-weight:600; margin-bottom:5px; display:flex; align-items:center; gap:9px }
-  .toast .m { color:var(--ink-soft); line-height:1.55; word-break:break-word }
-  .toast.err .t { color:#FF6B6B }
-  .toast.ok  .t { color:var(--ok) }
-  .toast .t { justify-content:space-between }
-  #toast-x { display:none; background:none; border:none; color:var(--ink-soft);
-             font-size:20px; line-height:1; cursor:pointer; padding:0 2px; margin-left:auto }
-  #toast-x:hover { color:var(--ink) }
-
-  footer { margin:74px 0 46px; padding-top:22px; border-top:1px solid var(--line);
-           font-size:12.5px; color:var(--asphalt); display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap }
+  @media (prefers-reduced-motion: reduce){ .gl-rot,.gl-lit,.gl-ok,.gl-halo,.gl-core{animation:none} .gl-lit{opacity:1} }
 </style>
 </head>
 <body>
@@ -170,61 +263,86 @@
   </svg>
 </template>
 
-<header>
-  <div class="wrap bar">
-    <div class="brand"><span data-spin="26"></span> Settled</div>
-    <div class="spacer"></div>
-    <div class="net"><span class="pip" id="pip"></span><span id="netlabel">Not connected</span></div>
-    <button class="primary" id="connect">Connect wallet</button>
+<!-- The mark: three possible findings, one of them struck. -->
+<template id="mark">
+  <svg viewBox="0 0 22 22" width="22" height="22" aria-hidden="true">
+    <rect x="1" y="3"  width="12" height="2.4" fill="currentColor" opacity=".28"/>
+    <rect x="1" y="9.8" width="20" height="2.4" fill="var(--seal)"/>
+    <rect x="1" y="16.6" width="12" height="2.4" fill="currentColor" opacity=".28"/>
+  </svg>
+</template>
+
+<header class="masthead">
+  <div class="wrap">
+    <span class="wordmark"><span data-mark></span> Settled</span>
+    <span class="grow"></span>
+    <span class="acct"><span class="lamp" id="lamp"></span><span id="who">No wallet</span></span>
+    <button class="seal" id="connect">Connect</button>
   </div>
 </header>
 
 <div class="wrap">
 
-  <section class="hero">
-    <h1>Prediction markets don't fail at pricing.<br>They fail at resolution.</h1>
-    <p class="lede">When a market's wording meets reality, someone has to read a source and decide what it means —
-      a judgement no deterministic chain can make. Today that gap is filled by token-weighted human voting, which is
-      slow, capturable, and has produced some famously contested settlements. <strong>Settled puts the reading
-      itself on-chain.</strong> Each GenLayer validator independently fetches the source, forms its own verdict, and
-      the network only settles if they agree on the outcome.</p>
+  <section class="opening">
+    <div class="filed">Adjudication oracle &middot; GenLayer Testnet Bradbury &middot; Chain 4221</div>
+    <h1>Prediction markets don't fail at pricing. They fail at <em>resolution</em>.</h1>
+    <p class="standfirst">When a market's wording finally meets reality, someone has to read a source and rule on
+      what it means — a judgement no deterministic chain can make. That work is handed today to committees and
+      token-weighted votes. <strong>Settled hands it to the network itself:</strong> every validator fetches the
+      source, reads it, and rules independently. Nothing is recorded unless they agree.</p>
 
-    <div class="callout">
-      <b>Why this needs GenLayer specifically.</b> The consensus check here is not a hash comparison — it's five
-      validators each running a language model over a live web page and having to arrive at the same answer.
-      Agreement is decided programmatically on a three-value enum, so validators must match on
-      <span class="mono">YES / NO / UNRESOLVED</span> while remaining free to word their reasoning differently.
-      If they can't agree, the transaction goes undetermined and the market stays open — for an oracle, no answer
-      beats a wrong answer.
+    <div class="grounds">
+      <div class="ground">
+        <h3>The finding is three-valued</h3>
+        <p>Yes, no, or unresolved. An oracle that cannot say <em>I don't know</em> is one that guesses under
+          pressure, and a guess entered into a permanent record is worse than a blank.</p>
+      </div>
+      <div class="ground">
+        <h3>Agreement is measured, not judged</h3>
+        <p>No second model arbitrates whether two answers are close enough. The finding is a closed set, so
+          validators must match on it exactly while reasoning in their own words.</p>
+      </div>
+      <div class="ground">
+        <h3>Deadlock is a permitted outcome</h3>
+        <p>If the validators cannot agree, the transaction is undetermined, nothing is written, and the question
+          stays open. Both such cases below are real, and are left standing as evidence.</p>
+      </div>
     </div>
 
-    <div class="cfg">
-      <div style="flex:1;min-width:280px">
-        <label for="addr">Contract address on Testnet Bradbury</label>
-        <input id="addr" class="mono" placeholder="0x… paste your deployed contract address" spellcheck="false">
+    <div class="docket">
+      <div class="f">
+        <label for="addr">Contract under examination</label>
+        <input id="addr" placeholder="0x&hellip;" spellcheck="false"
+               value="0xf02e9d00659f44F4245e371D1A493F1260406C8f">
       </div>
-      <button id="load" style="margin-top:22px">Load markets</button>
+      <button id="load">Open the record</button>
     </div>
   </section>
 
-  <h2>Markets <span class="count" id="mcount"></span></h2>
-  <div class="grid" id="markets">
+  <h2><span class="n">I.</span> The record <span class="n" id="count"></span></h2>
+  <p class="seclede">Each entry is a question put to the network, the criteria it was judged against, and what
+    the validators returned. Entries still open are not unfinished work; the annotations say which are which.</p>
+
+  <div class="records" id="records">
     <div class="empty">
-      <div style="display:flex;justify-content:center"><span data-spin="46"></span></div>
-      <p>Paste a contract address above and hit <b>Load markets</b>.</p>
+      <div style="display:flex;justify-content:center"><span data-spin="42"></span></div>
+      <p>Opening the record&hellip;</p>
     </div>
   </div>
 
-  <h2>Open a market</h2>
-  <div class="card">
-    <div class="two">
+  <h2><span class="n">II.</span> Put a question</h2>
+  <p class="seclede">Name what is being asked, exactly what would settle it either way, and where it should be
+    read from. Ambiguity written here is ambiguity the network has to arbitrate later.</p>
+
+  <div class="filing">
+    <div class="pair">
       <div>
-        <label for="f-id">Market id</label>
-        <input id="f-id" class="mono" placeholder="btc-100k-2026" spellcheck="false">
+        <label for="f-id">Reference</label>
+        <input id="f-id" placeholder="btc-100k-2026" spellcheck="false">
       </div>
       <div>
-        <label for="f-url">Source url</label>
-        <input id="f-url" class="mono" placeholder="https://…" spellcheck="false">
+        <label for="f-url">Source</label>
+        <input id="f-url" placeholder="https://&hellip;" spellcheck="false">
       </div>
     </div>
     <div class="field">
@@ -232,25 +350,25 @@
       <input id="f-q" placeholder="Did the named event occur, as described?">
     </div>
     <div class="field">
-      <label for="f-c">Resolution criteria</label>
-      <textarea id="f-c" placeholder="Be specific and falsifiable. Say exactly what in the source would make this YES, and what would make it NO. Ambiguity here is what the oracle has to arbitrate later."></textarea>
+      <label for="f-c">Criteria for a finding</label>
+      <textarea id="f-c" placeholder="State plainly what in the source makes this YES, and what makes it NO."></textarea>
     </div>
     <div class="acts">
-      <button class="primary" id="create" disabled>Create market</button>
-      <button class="sm" id="demo">Fill an example</button>
+      <button class="seal" id="create" disabled>File it</button>
+      <button class="quiet" id="demo">Use a worked example</button>
     </div>
   </div>
 
   <footer>
-    <span>Settled · built on GenLayer Testnet Bradbury (chain 4221)</span>
-    <span id="explorerlink"></span>
+    <span>Settled &middot; an adjudication oracle on GenLayer</span>
+    <span id="onchain"></span>
   </footer>
 </div>
 
-<div class="toast" id="toast">
-  <div class="t"><span id="toast-spin"></span><span id="toast-title">Working</span>
-    <button id="toast-x" aria-label="Dismiss">&times;</button></div>
-  <div class="m" id="toast-msg"></div>
+<div class="notice" id="notice">
+  <div class="nh"><span id="notice-spin"></span><span id="notice-title">Working</span>
+    <button id="notice-x" aria-label="Dismiss">&times;</button></div>
+  <div class="nb" id="notice-body"></div>
 </div>
 
 <script type="module">
@@ -261,100 +379,127 @@ import { TransactionStatus } from './genlayer-js.browser.js';
 const EXPLORER = 'https://explorer-bradbury.genlayer.com';
 const CHAIN_ID_HEX = '0x107d'; // 4221
 
-// ---------- spinner stamping ----------
+/* Annotations on specific entries. A correct null result looks identical to a
+   broken one unless something says otherwise, so the two real deadlocks this
+   contract produced are documented on the entries themselves rather than being
+   left to look like unfinished work. */
+const CASE_NOTES = {
+  'gl-bradbury-live': {
+    label: 'Why this one is still open',
+    body: [
+      `A resolution was run and the validators could not agree, so nothing was written. The transaction
+       rotated through four leaders and was decided <b>undetermined</b>.`,
+      `The cause was the source, not the contract. That page is assembled in the browser, so five validators
+       fetching it independently received different amounts of it — and a validator handed half a page
+       honestly answers UNRESOLVED while the leader says YES. For an oracle, a source that returns identical
+       bytes to every reader matters as much as a source that is authoritative.`,
+    ],
+    link: [`${EXPLORER}/tx/0x14f9624d245fb5c776749265181b14e5221f3c1445dbabdf97c4f5c592fd011a`,
+           'Read the validator votes'],
+  },
+  'polymarket-definition': {
+    label: 'On the appeal',
+    body: [
+      `This finding was disputed, and the objection is recorded below. Adjudication was then run and also
+       came back <b>undetermined</b>, which is why the entry rests here rather than closed.`,
+      `Resolution asks validators to read a fact. Adjudication asks them to weigh an argument against that
+       fact, and that is genuinely contestable — so they contested it. Appeals being harder to settle than
+       original findings is an honest property; it argues for appeals that carry a bond and re-open the
+       narrow point rather than the whole judgement.`,
+    ],
+  },
+};
+
+const PHASE = {
+  OPEN:     'Awaiting a finding',
+  RESOLVED: 'Finding entered &middot; open to dispute',
+  DISPUTED: 'Under appeal',
+  FINAL:    'Closed',
+};
+
+// ---------- templates ----------
 const spinTpl = document.getElementById('spin');
-function stampSpinners(root = document) {
-  root.querySelectorAll('[data-spin]').forEach(slot => {
-    if (slot.dataset.done) return;
-    const svg = spinTpl.content.firstElementChild.cloneNode(true);
-    const s = slot.dataset.spin || 24;
-    svg.setAttribute('width', s); svg.setAttribute('height', s);
-    slot.appendChild(svg); slot.dataset.done = '1';
+const markTpl = document.getElementById('mark');
+function stamp(root = document) {
+  root.querySelectorAll('[data-spin]').forEach(s => {
+    if (s.dataset.done) return;
+    const el = spinTpl.content.firstElementChild.cloneNode(true);
+    const n = s.dataset.spin || 24;
+    el.setAttribute('width', n); el.setAttribute('height', n);
+    s.appendChild(el); s.dataset.done = '1';
+  });
+  root.querySelectorAll('[data-mark]').forEach(s => {
+    if (s.dataset.done) return;
+    s.appendChild(markTpl.content.firstElementChild.cloneNode(true));
+    s.dataset.done = '1';
   });
 }
-stampSpinners();
+stamp();
 
-// ---------- toast ----------
-const toast = document.getElementById('toast');
-const tTitle = document.getElementById('toast-title');
-const tMsg = document.getElementById('toast-msg');
-const tSpin = document.getElementById('toast-spin');
-let toastTimer;
-function say(title, msg, kind = '') {
-  clearTimeout(toastTimer);
-  toast.className = 'toast show ' + kind;
-  tTitle.textContent = title;
-  tMsg.innerHTML = msg || '';
-  tSpin.innerHTML = '';
-  if (!kind) { tSpin.setAttribute('data-spin', '16'); tSpin.removeAttribute('data-done'); stampSpinners(toast); }
-  // Success messages fade; errors stay put until dismissed. An error you cannot
-  // read is worse than no error at all.
-  document.getElementById('toast-x').style.display = kind === 'err' ? 'block' : 'none';
-  if (kind === 'ok') toastTimer = setTimeout(() => toast.classList.remove('show'), 9000);
+// ---------- clerk's notice ----------
+const notice = document.getElementById('notice');
+const nTitle = document.getElementById('notice-title');
+const nBody  = document.getElementById('notice-body');
+const nSpin  = document.getElementById('notice-spin');
+let nTimer;
+function say(title, body, kind = '') {
+  clearTimeout(nTimer);
+  notice.className = 'notice show ' + kind;
+  nTitle.textContent = title;
+  nBody.innerHTML = body || '';
+  nSpin.innerHTML = ''; nSpin.removeAttribute('data-done');
+  if (!kind) { nSpin.setAttribute('data-spin', '15'); stamp(notice); }
+  document.getElementById('notice-x').style.display = kind === 'err' ? 'block' : 'none';
+  if (kind === 'ok') nTimer = setTimeout(() => notice.classList.remove('show'), 9000);
 }
-function hush() { clearTimeout(toastTimer); toast.classList.remove('show'); }
+function hush() { clearTimeout(nTimer); notice.classList.remove('show'); }
+document.getElementById('notice-x').addEventListener('click', hush);
 
 // ---------- state ----------
 let account = null;
-let readClient = createClient({ chain: testnetBradbury });
+const readClient = createClient({ chain: testnetBradbury });
 let writeClient = null;
 const addrInput = document.getElementById('addr');
 const contractAddress = () => addrInput.value.trim();
 
-// ---------- wallet ----------
-// Deliberately not using client.connect(): it requests the GenLayer MetaMask
-// Snap, which fails on wallets without Snap support. Plain EIP-1193 is enough
-// for deploy-free read/write, so the chain switch is done by hand.
-async function connect() {
-  if (!window.ethereum) {
-    say('No wallet found', 'Install MetaMask, then reload this page.', 'err');
-    return;
-  }
-  try {
-    say('Connecting', 'Approve the connection in your wallet.');
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    account = accounts[0];
-
-    try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: CHAIN_ID_HEX }],
-      });
-    } catch (e) {
-      if (e.code === 4902) {
-        await window.ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [{
-            chainId: CHAIN_ID_HEX,
-            chainName: 'GenLayer Testnet Chain',
-            rpcUrls: ['https://zksync-os-testnet-genlayer.zksync.dev'],
-            nativeCurrency: { name: 'GEN Token', symbol: 'GEN', decimals: 18 },
-            blockExplorerUrls: [EXPLORER + '/'],
-          }],
-        });
-      } else throw e;
-    }
-
-    writeClient = createClient({ chain: testnetBradbury, account, provider: window.ethereum });
-    document.getElementById('pip').classList.add('on');
-    document.getElementById('netlabel').textContent = account.slice(0, 6) + '…' + account.slice(-4);
-    document.getElementById('connect').textContent = 'Connected';
-    document.getElementById('create').disabled = false;
-    say('Connected', 'Wallet is on Bradbury and ready.', 'ok');
-  } catch (e) {
-    say('Connection failed', esc(e.message || String(e)), 'err');
-  }
-}
-document.getElementById('toast-x').addEventListener('click', hush);
-document.getElementById('connect').addEventListener('click', connect);
-
-// ---------- reads ----------
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// Reads one market's status straight from the chain. Used to confirm a write
+// ---------- wallet ----------
+// client.connect() is deliberately avoided: it requests the GenLayer MetaMask
+// Snap, which fails on wallets without Snap support and is not needed here.
+async function connect() {
+  if (!window.ethereum) { say('No wallet', 'Install MetaMask, then reload this page.', 'err'); return; }
+  try {
+    say('Connecting', 'Approve the request in your wallet.');
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    account = accounts[0];
+    try {
+      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_HEX }] });
+    } catch (e) {
+      if (e.code === 4902) {
+        await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{
+          chainId: CHAIN_ID_HEX, chainName: 'GenLayer Testnet Chain',
+          rpcUrls: ['https://zksync-os-testnet-genlayer.zksync.dev'],
+          nativeCurrency: { name: 'GEN Token', symbol: 'GEN', decimals: 18 },
+          blockExplorerUrls: [EXPLORER + '/'],
+        }] });
+      } else throw e;
+    }
+    writeClient = createClient({ chain: testnetBradbury, account, provider: window.ethereum });
+    document.getElementById('lamp').classList.add('on');
+    document.getElementById('who').textContent = account.slice(0, 6) + '…' + account.slice(-4);
+    document.getElementById('connect').textContent = 'Connected';
+    document.getElementById('create').disabled = false;
+    say('Connected', 'Your wallet is on Bradbury.', 'ok');
+  } catch (e) { say('Could not connect', esc(e.message || String(e)), 'err'); }
+}
+document.getElementById('connect').addEventListener('click', connect);
+
+// ---------- reads ----------
+// Reads one entry's phase straight from the chain. Used to confirm a write
 // actually landed rather than believing the transaction receipt.
 async function marketStatus(id) {
   try {
@@ -367,57 +512,61 @@ async function marketStatus(id) {
 
 async function load() {
   const addr = contractAddress();
-  if (!addr) { say('No address', 'Paste the deployed contract address first.', 'err'); return; }
+  if (!addr) { say('No address', 'Give the contract address first.', 'err'); return; }
   try {
-    say('Reading', 'Fetching markets from the contract.');
-    const data = await readClient.readContract({
-      address: addr, functionName: 'get_markets', args: [],
-    });
+    say('Reading', 'Fetching the record from the chain.');
+    const data = await readClient.readContract({ address: addr, functionName: 'get_markets', args: [] });
     render(data || {});
     hush();
-    document.getElementById('explorerlink').innerHTML =
-      `<a href="${EXPLORER}/address/${esc(addr)}" target="_blank" rel="noopener">View contract on explorer →</a>`;
-  } catch (e) {
-    say('Read failed', esc(e.message || String(e)), 'err');
-  }
+    document.getElementById('onchain').innerHTML =
+      `<a href="${EXPLORER}/address/${esc(addr)}" target="_blank" rel="noopener">The contract on-chain &rarr;</a>`;
+  } catch (e) { say('Could not read', esc(e.message || String(e)), 'err'); }
 }
 document.getElementById('load').addEventListener('click', load);
 
 function render(markets) {
-  const box = document.getElementById('markets');
-  const entries = Object.entries(markets);
-  document.getElementById('mcount').textContent = entries.length ? entries.length : '';
+  const box = document.getElementById('records');
+  const rows = Object.entries(markets);
+  document.getElementById('count').textContent = rows.length ? `${rows.length} entries` : '';
 
-  if (!entries.length) {
-    box.innerHTML = `<div class="empty"><p>No markets yet. Open the first one below.</p></div>`;
+  if (!rows.length) {
+    box.innerHTML = `<div class="empty"><p>Nothing on the record yet. Put the first question below.</p></div>`;
     return;
   }
 
-  box.innerHTML = entries.map(([id, m]) => {
-    const status = String(m.status || 'OPEN');
-    const outcome = String(m.outcome || 'UNRESOLVED');
-    const settled = status === 'RESOLVED' || status === 'FINAL' || status === 'DISPUTED';
+  box.innerHTML = rows.map(([id, m]) => {
+    const phase = String(m.status || 'OPEN');
+    const finding = String(m.outcome || 'UNRESOLVED');
+    const ruled = phase !== 'OPEN';
+    const note = CASE_NOTES[id];
 
-    let acts = '';
-    if (status === 'OPEN')     acts = `<button class="primary sm" data-act="resolve" data-id="${esc(id)}">Run resolution</button>`;
-    if (status === 'RESOLVED') acts = `<button class="sm" data-act="dispute" data-id="${esc(id)}">Dispute this</button>`;
-    if (status === 'DISPUTED') acts = `<button class="primary sm" data-act="adjudicate" data-id="${esc(id)}">Adjudicate</button>`;
-    if (status === 'FINAL')    acts = `<span class="id">Settled. No further appeal.</span>`;
+    let act = '';
+    if (phase === 'OPEN')     act = `<button class="seal" data-act="resolve" data-id="${esc(id)}">Put it to the validators</button>`;
+    if (phase === 'RESOLVED') act = `<button data-act="dispute" data-id="${esc(id)}">Dispute this finding</button>`;
+    if (phase === 'DISPUTED') act = `<button class="seal" data-act="adjudicate" data-id="${esc(id)}">Adjudicate the appeal</button>`;
+    if (phase === 'FINAL')    act = `<span class="closed">Closed &middot; no further appeal</span>`;
 
-    return `<div class="card">
-      <div class="meta">
-        <span class="pill ${esc(status)}">${esc(status)}</span>
-        ${settled ? `<span class="out ${esc(outcome)}">${esc(outcome)}</span>` : ''}
-        <span class="id mono">${esc(id)}</span>
+    return `<article class="record">
+      <div class="rhead">
+        ${ruled ? `<span class="stamp ${esc(finding)}">${esc(finding)}</span>` : ''}
+        <span class="phase">${PHASE[phase] || esc(phase)}</span>
+        <span class="no-ref">${esc(id)}</span>
       </div>
-      <p class="q">${esc(m.question)}</p>
-      <div class="field"><div class="k">Resolution criteria</div><div class="v">${esc(m.criteria)}</div></div>
-      ${m.rationale ? `<div class="field"><div class="k">Validator reasoning</div><div class="v">${esc(m.rationale)}</div></div>` : ''}
-      ${m.evidence ? `<div class="field"><div class="k">Evidence cited</div><div class="v quote">${esc(m.evidence)}</div></div>` : ''}
-      ${m.dispute_reason ? `<div class="field"><div class="k">Objection raised</div><div class="v">${esc(m.dispute_reason)}</div></div>` : ''}
-      <div class="field"><div class="k">Source</div><div class="v"><a href="${esc(m.source_url)}" target="_blank" rel="noopener">${esc(m.source_url)}</a></div></div>
-      <div class="acts">${acts}</div>
-    </div>`;
+      <h3 class="question">${esc(m.question)}</h3>
+      <dl style="margin:0">
+        <div class="entry"><dt>Criteria</dt><dd>${esc(m.criteria)}</dd></div>
+        ${m.rationale ? `<div class="entry"><dt>Reasoning</dt><dd>${esc(m.rationale)}</dd></div>` : ''}
+        ${m.evidence ? `<div class="entry"><dt>Evidence</dt><dd><blockquote>${esc(m.evidence)}</blockquote></dd></div>` : ''}
+        ${m.dispute_reason ? `<div class="entry"><dt>Objection</dt><dd>${esc(m.dispute_reason)}</dd></div>` : ''}
+        <div class="entry"><dt>Source</dt><dd><a href="${esc(m.source_url)}" target="_blank" rel="noopener">${esc(m.source_url)}</a></dd></div>
+      </dl>
+      ${note ? `<div class="note">
+          <span class="lbl">${esc(note.label)}</span>
+          ${note.body.map(p => `<p>${p}</p>`).join('')}
+          ${note.link ? `<p><a href="${note.link[0]}" target="_blank" rel="noopener">${esc(note.link[1])} &rarr;</a></p>` : ''}
+        </div>` : ''}
+      <div class="acts">${act}</div>
+    </article>`;
   }).join('');
 }
 
@@ -425,101 +574,94 @@ function render(markets) {
 async function send(fn, args, note, verify) {
   if (!writeClient) { say('Not connected', 'Connect your wallet first.', 'err'); return false; }
   const addr = contractAddress();
-  if (!addr) { say('No address', 'Paste the deployed contract address first.', 'err'); return false; }
+  if (!addr) { say('No address', 'Give the contract address first.', 'err'); return false; }
 
+  let hash;
   try {
-    say('Confirm in wallet', note);
-    const hash = await writeClient.writeContract({
-      address: addr, functionName: fn, args, value: BigInt(0),
-    });
+    say('Confirm in your wallet', note);
+    hash = await writeClient.writeContract({ address: addr, functionName: fn, args, value: BigInt(0) });
 
-    say('Submitted', `Validators are working. This can take a while — resolution runs a real
-      language model over a live page on five validators.<br><br>
-      <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Follow the transaction →</a>`);
+    say('With the validators', `Five of them are reading the source and forming their own view. This is
+      slow by nature &mdash; minutes, not seconds. Leave it be.<br><br>
+      <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Follow it on-chain &rarr;</a>`);
 
     const receipt = await readClient.waitForTransactionReceipt({
-      hash, status: TransactionStatus.ACCEPTED, retries: 200, interval: 4000,
+      hash, status: TransactionStatus.ACCEPTED, retries: 450, interval: 4000,
     });
 
-    // A transaction can reach consensus and still have failed inside the VM,
-    // so the status alone is not proof of success.
     const result = receipt?.txExecutionResultName || receipt?.status;
     if (String(result).includes('ERROR')) {
-      say('Rejected by the contract', `The transaction was accepted but execution failed
-        (${esc(result)}). <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">See details →</a>`, 'err');
+      say('Refused by the contract', `The transaction was accepted but execution failed (${esc(result)}).
+        <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Details &rarr;</a>`, 'err');
       return false;
     }
 
     // A receipt is not proof the write landed. An undetermined transaction comes
-    // back looking successful while changing nothing, so the only honest check is
-    // to read the state back and see whether it actually moved.
+    // back looking successful while changing nothing, so read the state back.
     if (verify) {
       const moved = await verify();
       if (!moved) {
-        say('No consensus \u2014 nothing was written',
-          `The validators read the source and did not all reach the same answer, so the
-           contract refused to record one. Your market is unchanged and can be tried again.
-           <br><br>This is the safety property working, not a crash: for an oracle, no answer
-           beats a wrong answer.<br><br>
-           <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">See the validator votes \u2192</a>`,
-          'err');
+        say('Undetermined &mdash; nothing written',
+          `The validators did not all reach the same finding, so the contract declined to record one.
+           The entry is unchanged and can be put again.<br><br>This is the safety property, not a fault:
+           a blank is better than a wrong entry in a permanent record.<br><br>
+           <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Read the votes &rarr;</a>`, 'err');
         await load();
         return false;
       }
     }
 
-    say('Done', `<a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">View transaction \u2192</a>`, 'ok');
+    say('Entered on the record', `<a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">View the transaction &rarr;</a>`, 'ok');
     await load();
     return true;
   } catch (e) {
     const msg = String(e?.message || e);
-    if (msg.includes('UNDETERMINED') || msg.includes('undetermined')) {
-      say('No consensus', `The validators could not agree on an outcome, so nothing was written and
-        the market is unchanged. That is the oracle working as designed — try a source that states
-        the fact more plainly.`, 'err');
-    } else {
-      say('Failed', esc(msg), 'err');
+    if (msg.includes('Timed out') || msg.includes('timed out')) {
+      // Still in flight. Calling this a failure invites a second, needless send.
+      say('Still running &mdash; not failed',
+        `The validators are taking longer than this page was willing to wait. Nothing is lost.<br><br>
+         <b>Do not send it again.</b> Give it a few minutes, then press <b>Open the record</b>.<br><br>
+         <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Watch it on-chain &rarr;</a>`, 'err');
+      return false;
     }
+    say('Failed', esc(msg), 'err');
     return false;
   }
 }
 
-document.getElementById('markets').addEventListener('click', async (ev) => {
+document.getElementById('records').addEventListener('click', async (ev) => {
   const btn = ev.target.closest('[data-act]');
   if (!btn) return;
   const id = btn.dataset.id;
 
   if (btn.dataset.act === 'resolve') {
     const before = await marketStatus(id);
-    await send('resolve', [id], 'Each validator will read the source and judge it independently.',
+    await send('resolve', [id], 'Each validator will read the source and rule independently.',
       async () => (await marketStatus(id)) !== before);
   }
   if (btn.dataset.act === 'adjudicate') {
     const before = await marketStatus(id);
-    await send('adjudicate', [id], 'Re-judging with the objection placed in front of the validators.',
+    await send('adjudicate', [id], 'The objection goes before the validators alongside the source.',
       async () => (await marketStatus(id)) !== before);
   }
   if (btn.dataset.act === 'dispute') {
-    const reason = prompt('What is wrong with this resolution? Be specific — the validators will read it.');
+    const reason = prompt('On what grounds? The validators will read this.');
     if (reason && reason.trim()) await send('dispute', [id, reason.trim()], 'Recording the objection on-chain.');
   }
 });
 
 document.getElementById('create').addEventListener('click', async () => {
   const id = document.getElementById('f-id').value.trim();
-  const q = document.getElementById('f-q').value.trim();
-  const c = document.getElementById('f-c').value.trim();
-  const u = document.getElementById('f-url').value.trim();
-  if (!id || !q || !c || !u) { say('Missing fields', 'All four fields are required.', 'err'); return; }
-  const ok = await send('create_market', [id, q, c, u], 'Opening the market on-chain.');
+  const q  = document.getElementById('f-q').value.trim();
+  const c  = document.getElementById('f-c').value.trim();
+  const u  = document.getElementById('f-url').value.trim();
+  if (!id || !q || !c || !u) { say('Incomplete', 'All four fields are needed.', 'err'); return; }
+  const ok = await send('create_market', [id, q, c, u], 'Putting the question on the record.');
   if (ok) ['f-id', 'f-q', 'f-c', 'f-url'].forEach(k => document.getElementById(k).value = '');
 });
 
 document.getElementById('demo').addEventListener('click', () => {
-  // The example deliberately points at a server-rendered page whose decisive fact
-  // sits in the opening sentence. A JavaScript-heavy source is a bad source here:
-  // validators fetch it independently, and if they receive different amounts of
-  // rendered content they will honestly disagree, and the market will not settle.
+  // A source served as fixed bytes, so every validator reads the same thing.
   document.getElementById('f-id').value = 'settled-self-description';
   document.getElementById('f-q').value = 'Does the source describe Settled as an adjudication oracle for prediction markets?';
   document.getElementById('f-c').value =
@@ -528,6 +670,9 @@ document.getElementById('demo').addEventListener('click', () => {
     'UNRESOLVED if the source does not mention Settled.';
   document.getElementById('f-url').value = 'https://raw.githubusercontent.com/PranjalBoraCrypto/settled/main/README.md';
 });
+
+// Open the record on arrival — a reviewer should not have to press anything.
+load();
 </script>
 </body>
 </html>
