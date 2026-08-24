@@ -231,6 +231,43 @@
   @keyframes gl-halo{0%,83%{opacity:0;transform:scale(.9)}89%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.14)}}
   @keyframes gl-core{0%,83%{opacity:0;transform:scale(.2)}90%,95%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.3)}}
   @media (prefers-reduced-motion: reduce){ .gl-rot,.gl-lit,.gl-ok,.gl-halo,.gl-core{animation:none} .gl-lit{opacity:1} }
+  /* --- your positions ------------------------------------------------ */
+  .wallet { border:1px solid var(--rule-2); background:var(--leaf); margin:0 0 38px; }
+  .whead { display:flex; flex-wrap:wrap; gap:12px 20px; align-items:baseline;
+           padding:18px 22px 0; }
+  .whead h2 { margin:0; border:0; padding:0; }
+  .tabs { display:flex; gap:2px; margin-left:auto; }
+  .tabs button { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:10.5px;
+                 letter-spacing:.09em; text-transform:uppercase; background:none; border:0;
+                 border-bottom:2px solid transparent; color:var(--ink-3); padding:6px 10px;
+                 cursor:pointer; display:flex; align-items:center; gap:6px; transition:color .18s ease; }
+  .tabs button:hover:not([disabled]) { color:var(--ink); }
+  .tabs button.on { color:var(--seal); border-bottom-color:var(--seal); }
+  .tabs button[disabled] { opacity:.35; cursor:default; }
+  .tabs button span { font-size:10px; padding:1px 5px; border-radius:8px; background:var(--leaf-2);
+                      color:var(--ink-3); }
+  .tabs button.on span { background:var(--seal-soft); color:var(--seal); }
+  .wrow { display:grid; grid-template-columns:52px 1fr auto auto; gap:4px 16px; align-items:baseline;
+          padding:15px 22px; border-top:1px solid var(--rule); text-decoration:none; color:inherit;
+          transition:background .18s ease; }
+  .wrow:hover { background:var(--leaf-2); }
+  .wside { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:10px; letter-spacing:.08em;
+           padding:2px 0; text-align:center; border:1px solid var(--rule-2); color:var(--ink-2); }
+  .wside.YES { color:var(--yes); border-color:var(--yes); }
+  .wside.NO  { color:var(--no);  border-color:var(--no); }
+  .wq { font-family:'Newsreader',Georgia,serif; font-size:16px; color:var(--ink); }
+  .wamt { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:14px; text-align:right;
+          color:var(--ink); font-variant-numeric:tabular-nums; }
+  .wamt.win  { color:var(--yes); }
+  .wamt.loss { color:var(--no); }
+  .wamt em { display:block; font-style:normal; font-size:9.5px; letter-spacing:.08em;
+             text-transform:uppercase; color:var(--ink-3); margin-top:2px; }
+  .wnote { grid-column:2/-1; font-size:13.5px; color:var(--ink-2); }
+  .wempty { padding:22px; margin:0; border-top:1px solid var(--rule); color:var(--ink-3); font-size:14px; }
+  @media (max-width:640px) {
+    .wrow { grid-template-columns:52px 1fr; }
+    .wamt { text-align:left; grid-column:2; }
+  }
   /* --- motion, all of it in service of something ---------------------- */
   /* Records arrive rather than appear, so a reader can see how many there are. */
   @keyframes rise { from { opacity:0; transform:translateY(9px); } to { opacity:1; transform:none; } }
@@ -307,6 +344,8 @@
   /* --- a refusal, explained ------------------------------------------ */
   .note.mine { border-color:var(--yes); background:var(--yes-soft); }
   .note.mine .lbl { color:var(--yes); }
+  .note.mine.lost { border-color:var(--no); background:var(--no-soft); }
+  .note.mine.lost .lbl { color:var(--no); }
   .said { margin:0 0 12px; padding:8px 0 8px 14px; border-left:2px solid var(--no);
           font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:12.5px; color:var(--ink); }
   .plain { margin:0 0 12px; font-size:15px; color:var(--ink); }
@@ -439,6 +478,14 @@
     <div class="lrow" id="lrow"></div>
     <p class="lnote" id="lnote"></p>
   </div>
+
+  <section class="wallet" id="wallet" hidden>
+    <div class="whead">
+      <h2>Your positions <span class="n" id="w-who"></span></h2>
+      <div class="tabs" id="w-tabs" role="tablist"></div>
+    </div>
+    <div id="w-body"></div>
+  </section>
 
   <h2><span class="n">I.</span> The record <span class="n" id="count"></span></h2>
   <p class="seclede">Each entry is a question put to the network, the criteria it was judged against, and what
@@ -908,6 +955,23 @@ document.getElementById('load').addEventListener('click', load);
 /* The eight things that have to happen, and which have. A reviewer landing on a
    half-finished market should be able to see the shape of the process without
    reading a word of prose. */
+/* What a wallet took out of a settled pool.
+   The contract deliberately reports zero entitlement once a wallet has claimed —
+   a settled position should not keep advertising money that has already gone. So
+   after a claim the amount has to be derived here instead, from the stake and the
+   pool totals. Same arithmetic as claim(): floor division, winners split the
+   whole pot in proportion, a refund returns exactly what was put in. */
+function paidOut(p, pool) {
+  const my = BigInt(p.staked_yes || 0) + BigInt(p.staked_no || 0);
+  const ty = BigInt(pool.total_yes || 0), tn = BigInt(pool.total_no || 0);
+  const pot = ty + tn;
+  const r = String(pool.result || '');
+  if (r === 'REFUND') return my;
+  if (r === 'YES' && ty > 0n) return BigInt(p.staked_yes || 0) * pot / ty;
+  if (r === 'NO'  && tn > 0n) return BigInt(p.staked_no  || 0) * pot / tn;
+  return 0n;
+}
+
 function rail(m, pool, pos) {
   const phase = String(m.status || 'OPEN');
   const ruled = phase !== 'OPEN';
@@ -1005,6 +1069,77 @@ function waitingOn(m) {
   return null;
 }
 
+/* Everything the connected wallet is holding, sorted by what it can do about it.
+   The record below is the public ledger; this is the same data asked a different
+   question — not "what happened" but "where do I stand". */
+let W_TAB = 'claimable';
+
+function wallet(markets) {
+  const box = document.getElementById('wallet');
+  if (!account || !Object.keys(POSITIONS).length) { box.hidden = true; return; }
+
+  const rows = [];
+  for (const [id, p] of Object.entries(POSITIONS)) {
+    const staked = BigInt(p.staked_yes || 0) + BigInt(p.staked_no || 0);
+    if (staked === 0n) continue;
+    const pool = POOLS[id], m = markets[id];
+    if (!pool || !m) continue;
+    const took = paidOut(p, pool);
+    const side = BigInt(p.staked_yes || 0) > 0n
+      ? (BigInt(p.staked_no || 0) > 0n ? 'BOTH' : 'YES') : 'NO';
+    let bucket, note;
+    if (!pool.settled) {
+      bucket = 'open';
+      note = String(m.status) === 'OPEN'
+        ? 'Awaiting a finding. Your stake is committed.'
+        : 'A finding is entered. The pool has not been settled yet.';
+    } else if (!p.claimed && took > 0n) {
+      bucket = 'claimable';
+      note = `Won. ${gen(took)} GEN is waiting to be withdrawn.`;
+    } else if (p.claimed) {
+      bucket = 'history';
+      note = `Won and withdrawn. Took ${gen(took)} GEN on a ${gen(staked)} stake.`;
+    } else {
+      bucket = 'history';
+      note = `Lost. The finding was ${esc(pool.result)}; this stake went to the other side.`;
+    }
+    rows.push({ id, m, pool, p, staked, took, side, bucket, note });
+  }
+
+  if (!rows.length) { box.hidden = true; return; }
+  box.hidden = false;
+  document.getElementById('w-who').textContent = account.slice(0, 6) + '…' + account.slice(-4);
+
+  const TABS = [['claimable', 'Claimable'], ['open', 'Open'], ['history', 'Settled']];
+  const counts = Object.fromEntries(TABS.map(([k]) => [k, rows.filter(r => r.bucket === k).length]));
+  // Land on a tab that has something in it rather than an empty one.
+  if (!counts[W_TAB]) W_TAB = (TABS.find(([k]) => counts[k]) || TABS[0])[0];
+
+  document.getElementById('w-tabs').innerHTML = TABS.map(([k, label]) =>
+    `<button role="tab" class="${k === W_TAB ? 'on' : ''}" data-tab="${k}"
+       ${counts[k] ? '' : 'disabled'}>${label}<span>${counts[k]}</span></button>`).join('');
+
+  const shown = rows.filter(r => r.bucket === W_TAB);
+  document.getElementById('w-body').innerHTML = shown.length ? shown.map(r => `
+    <a class="wrow" href="#e-${esc(r.id)}">
+      <span class="wside ${r.side}">${r.side}</span>
+      <span class="wq">${esc(r.m.question)}</span>
+      <span class="wamt">${gen(r.staked)}<em>staked</em></span>
+      <span class="wamt ${r.bucket === 'claimable' ? 'win' : (r.took === 0n && r.pool.settled ? 'loss' : '')}">
+        ${r.pool.settled ? gen(r.took) : '&mdash;'}<em>${r.pool.settled ? (r.p.claimed ? 'taken' : 'owed') : 'undecided'}</em></span>
+      <span class="wnote">${r.note}</span>
+    </a>`).join('') : `<p class="wempty">Nothing here.</p>`;
+}
+
+document.getElementById('w-tabs').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-tab]');
+  if (!b || b.disabled) return;
+  W_TAB = b.dataset.tab;
+  wallet(LAST_MARKETS);
+});
+
+let LAST_MARKETS = {};
+
 function ledger(markets) {
   const rows = Object.entries(markets);
   const pools = Object.entries(POOLS);
@@ -1051,7 +1186,9 @@ function ledger(markets) {
 }
 
 function render(markets) {
+  LAST_MARKETS = markets;
   ledger(markets);
+  wallet(markets);
   const box = document.getElementById('records');
   const rows = Object.entries(markets);
   document.getElementById('count').textContent = rows.length ? `${rows.length} entries` : '';
@@ -1099,11 +1236,11 @@ function render(markets) {
       } else if (p.claimed) {
         act = `<button class="seal" disabled>Claimed &#10003;</button>
                <span class="closed">Paid out to this wallet already</span>`;
-      } else if (BigInt(p.entitlement || 0) === 0n) {
+      } else if (paidOut(p, pool) === 0n) {
         act = `<button disabled>Nothing to claim</button>
                <span class="closed">This wallet backed the side that lost</span>`;
       } else {
-        act = `<button class="seal" data-act="claim" data-id="${esc(id)}">Claim ${gen(p.entitlement)} GEN</button>`;
+        act = `<button class="seal" data-act="claim" data-id="${esc(id)}">Claim ${gen(paidOut(p, pool))} GEN</button>`;
       }
     } else {
       act = `<span class="closed">Closed &middot; no further appeal</span>`;
@@ -1145,17 +1282,24 @@ function render(markets) {
       </dl></div>`;
 
     const p = POSITIONS[id];
-    const mine = (p && (BigInt(p.staked_yes || 0) + BigInt(p.staked_no || 0)) > 0n) ? `<div class="note mine">
+    const lost = !!(p && pool && pool.settled && paidOut(p, pool) === 0n);
+    const mine = (p && (BigInt(p.staked_yes || 0) + BigInt(p.staked_no || 0)) > 0n) ? `<div class="note mine${lost ? ' lost' : ''}">
       <span class="lbl">This wallet&rsquo;s position</span>
       <dl style="margin:0">
         ${BigInt(p.staked_yes || 0) > 0n ? `<div class="entry"><dt>Staked on YES</dt><dd>${gen(p.staked_yes)} GEN</dd></div>` : ''}
         ${BigInt(p.staked_no  || 0) > 0n ? `<div class="entry"><dt>Staked on NO</dt><dd>${gen(p.staked_no)} GEN</dd></div>` : ''}
-        ${pool && pool.settled ? `<div class="entry"><dt>${p.claimed ? 'Paid out' : 'Owed'}</dt>
-          <dd>${p.claimed
-            ? `<b>${gen(p.entitlement)} GEN</b> &mdash; already withdrawn to this wallet.`
-            : (BigInt(p.entitlement || 0) === 0n
-               ? `Nothing. This wallet backed ${esc(pool.result) === 'YES' ? 'NO' : 'YES'}, and the finding went the other way.`
-               : `<b>${gen(p.entitlement)} GEN</b> &mdash; stake returned plus the losing side&rsquo;s.`)}</dd></div>` : ''}
+        ${pool && pool.settled ? (() => {
+          const took = paidOut(p, pool);
+          if (p.claimed) return `<div class="entry"><dt>Paid out</dt>
+            <dd><b>${gen(took)} GEN</b> &mdash; already withdrawn to this wallet.
+            Staked ${gen(BigInt(p.staked_yes || 0) + BigInt(p.staked_no || 0))}, took ${gen(took)}.</dd></div>`;
+          if (took === 0n) return `<div class="entry"><dt>Result</dt>
+            <dd><b>Lost.</b> This wallet backed ${BigInt(p.staked_yes || 0) > 0n ? 'YES' : 'NO'} and the
+            finding was ${esc(pool.result)}. Its ${gen(BigInt(p.staked_yes || 0) + BigInt(p.staked_no || 0))}
+            GEN went to the other side, which is what it was staked against. Nothing to claim.</dd></div>`;
+          return `<div class="entry"><dt>Owed</dt>
+            <dd><b>${gen(took)} GEN</b> &mdash; its own stake back, plus the losing side&rsquo;s.</dd></div>`;
+        })() : ''}
       </dl></div>` : '';
 
     const stakes = pool ? `<div class="note">
@@ -1171,7 +1315,7 @@ function render(markets) {
       </dl></div>`
       : '';
 
-    return `<article class="record">
+    return `<article class="record" id="e-${esc(id)}">
       <div class="rhead">
         ${ruled ? `<span class="stamp ${esc(finding)}">${esc(finding)}</span>` : ''}
         <span class="phase">${PHASE[phase] || esc(phase)}</span>
