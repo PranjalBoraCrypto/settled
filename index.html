@@ -305,6 +305,8 @@
                            font-size:10px; letter-spacing:.09em; text-transform:uppercase;
                            color:var(--ink-3); margin-bottom:3px; }
   /* --- a refusal, explained ------------------------------------------ */
+  .note.mine { border-color:var(--yes); background:var(--yes-soft); }
+  .note.mine .lbl { color:var(--yes); }
   .said { margin:0 0 12px; padding:8px 0 8px 14px; border-left:2px solid var(--no);
           font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:12.5px; color:var(--ink); }
   .plain { margin:0 0 12px; font-size:15px; color:var(--ink); }
@@ -790,6 +792,10 @@ const payoutAddress   = () => paddrInput.value.trim();
 let POOLS = {};
 let DISPUTE_WINDOW = 300;
 let POOL_ERR = null;
+// What the CONNECTED wallet holds in each pool. The contract already computes
+// this; recomputing the payout arithmetic in JavaScript would drift from it the
+// first time either side changed.
+let POSITIONS = {};
 // Bradbury's finalization window, as reported on its own transaction pages.
 const FINALITY_WINDOW = 1800;
 
@@ -877,6 +883,18 @@ async function load() {
         POOL_ERR = String(e?.message || e);
       }
     }
+    // One position read per pool, for whoever is connected. Cheap, and it turns
+    // "Claim" from a button that might refuse into a statement of fact.
+    POSITIONS = {};
+    if (account && paddr) {
+      await Promise.all(Object.keys(POOLS).map(async id => {
+        try {
+          POSITIONS[id] = await readClient.readContract({
+            address: paddr, functionName: 'position', args: [id, account] });
+        } catch (e) { /* a wallet with no position is not an error */ }
+      }));
+    }
+
     render(data || {});
     hush();
     const paddr2 = payoutAddress();
@@ -890,7 +908,7 @@ document.getElementById('load').addEventListener('click', load);
 /* The eight things that have to happen, and which have. A reviewer landing on a
    half-finished market should be able to see the shape of the process without
    reading a word of prose. */
-function rail(m, pool) {
+function rail(m, pool, pos) {
   const phase = String(m.status || 'OPEN');
   const ruled = phase !== 'OPEN';
   const steps = [
@@ -901,7 +919,7 @@ function rail(m, pool) {
     ['Ruled',     ruled],
     ['Closed',    phase === 'FINAL'],
     ['Settled',   !!(pool && pool.settled)],
-    ['Claimed',   false],
+    ['Claimed',   !!(pos && pos.claimed)],
   ];
   // The first not-yet-done step is the one in progress.
   const next = steps.findIndex(([, done]) => !done);
@@ -1073,12 +1091,25 @@ function render(markets) {
     } else if (phase === 'FINAL' && pool && !pool.settled) {
       act = `<button class="seal" data-act="settle" data-id="${esc(id)}">Settle the pool</button>`;
     } else if (phase === 'FINAL' && pool && pool.settled) {
-      act = `<button class="seal" data-act="claim" data-id="${esc(id)}">Claim what you are owed</button>`;
+      const p = POSITIONS[id];
+      if (!account) {
+        act = `<span class="closed">Settled. Connect a wallet to see your position.</span>`;
+      } else if (!p || (BigInt(p.staked_yes || 0) + BigInt(p.staked_no || 0)) === 0n) {
+        act = `<span class="closed">Settled &middot; this wallet backed nothing here</span>`;
+      } else if (p.claimed) {
+        act = `<button class="seal" disabled>Claimed &#10003;</button>
+               <span class="closed">Paid out to this wallet already</span>`;
+      } else if (BigInt(p.entitlement || 0) === 0n) {
+        act = `<button disabled>Nothing to claim</button>
+               <span class="closed">This wallet backed the side that lost</span>`;
+      } else {
+        act = `<button class="seal" data-act="claim" data-id="${esc(id)}">Claim ${gen(p.entitlement)} GEN</button>`;
+      }
     } else {
       act = `<span class="closed">Closed &middot; no further appeal</span>`;
     }
 
-    const track = rail(m, pool);
+    const track = rail(m, pool, POSITIONS[id]);
     const wait = waitingOn(m);
     if (wait && wait.gate) {
       // Disable exactly the button this gate would refuse, and say why. A
@@ -1112,6 +1143,20 @@ function render(markets) {
         ${Number(m.resolve_attempts || 0) > 0 ? `<div class="entry"><dt>Failed attempts</dt>
           <dd>${esc(m.resolve_attempts)} &mdash; counted, so a source going dark is distinguishable from one nobody tried.</dd></div>` : ''}
       </dl></div>`;
+
+    const p = POSITIONS[id];
+    const mine = (p && (BigInt(p.staked_yes || 0) + BigInt(p.staked_no || 0)) > 0n) ? `<div class="note mine">
+      <span class="lbl">This wallet&rsquo;s position</span>
+      <dl style="margin:0">
+        ${BigInt(p.staked_yes || 0) > 0n ? `<div class="entry"><dt>Staked on YES</dt><dd>${gen(p.staked_yes)} GEN</dd></div>` : ''}
+        ${BigInt(p.staked_no  || 0) > 0n ? `<div class="entry"><dt>Staked on NO</dt><dd>${gen(p.staked_no)} GEN</dd></div>` : ''}
+        ${pool && pool.settled ? `<div class="entry"><dt>${p.claimed ? 'Paid out' : 'Owed'}</dt>
+          <dd>${p.claimed
+            ? `<b>${gen(p.entitlement)} GEN</b> &mdash; already withdrawn to this wallet.`
+            : (BigInt(p.entitlement || 0) === 0n
+               ? `Nothing. This wallet backed ${esc(pool.result) === 'YES' ? 'NO' : 'YES'}, and the finding went the other way.`
+               : `<b>${gen(p.entitlement)} GEN</b> &mdash; stake returned plus the losing side&rsquo;s.`)}</dd></div>` : ''}
+      </dl></div>` : '';
 
     const stakes = pool ? `<div class="note">
       <span class="lbl">The stakes</span>
@@ -1149,6 +1194,7 @@ function render(markets) {
       ${gate}
       ${evidence}
       ${stakes}
+      ${mine}
       <div class="acts">${act}</div>
     </article>`;
   }).join('');
