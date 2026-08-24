@@ -749,8 +749,39 @@ async function send(fn, args, note, verify, opts = {}) {
 
     const result = receipt?.txExecutionResultName || receipt?.status;
     if (String(result).includes('ERROR')) {
-      say('Refused by the contract', `The transaction was accepted but execution failed (${esc(result)}).
-        <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Details &rarr;</a>`, 'err');
+      // Dig the contract's own sentence out of the receipt. Every refusal in
+      // these contracts is a specific message written to say exactly what is
+      // wrong; showing a status code instead throws that away and leaves the
+      // user guessing between forty possible causes.
+      let why = '';
+      const seen = new Set();
+      (function hunt(o, depth) {
+        if (!o || depth > 6 || why) return;
+        if (typeof o === 'string') {
+          const t = o.trim();
+          // The contract's messages are lowercase prose, not identifiers.
+          if (t.length > 8 && t.length < 300 && /\s/.test(t) && !/^0x/.test(t) &&
+              !/^[A-Z_]+$/.test(t) && /[a-z]/.test(t)) { why = t; }
+          return;
+        }
+        if (typeof o !== 'object' || seen.has(o)) return;
+        seen.add(o);
+        for (const k of ['message', 'error', 'errorMessage', 'reason', 'stderr', 'genvmResult',
+                         'result', 'data', 'consensus_data', 'leader_receipt', 'eq_outputs']) {
+          if (o[k] !== undefined) hunt(o[k], depth + 1);
+          if (why) return;
+        }
+        if (Array.isArray(o)) for (const v of o) { hunt(v, depth + 1); if (why) return; }
+      })(receipt, 0);
+
+      console.log('[Settled] full receipt for ' + hash, receipt);
+
+      say('Refused by the contract',
+        (why ? `<b>&ldquo;${esc(why)}&rdquo;</b><br><br>` : '') +
+        `The transaction was accepted, and the contract then declined to act (${esc(result)}).
+         That is a rule firing, not a crash &mdash; nothing was changed and nothing was lost.
+         ${why ? '' : 'The full receipt has been printed to the browser console (Cmd+Option+I).'}
+         <br><br><a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Details &rarr;</a>`, 'err');
       return false;
     }
 
