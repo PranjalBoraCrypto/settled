@@ -231,6 +231,85 @@
   @keyframes gl-halo{0%,83%{opacity:0;transform:scale(.9)}89%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.14)}}
   @keyframes gl-core{0%,83%{opacity:0;transform:scale(.2)}90%,95%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.3)}}
   @media (prefers-reduced-motion: reduce){ .gl-rot,.gl-lit,.gl-ok,.gl-halo,.gl-core{animation:none} .gl-lit{opacity:1} }
+  /* --- motion, all of it in service of something ---------------------- */
+  /* Records arrive rather than appear, so a reader can see how many there are. */
+  @keyframes rise { from { opacity:0; transform:translateY(9px); } to { opacity:1; transform:none; } }
+  .record { animation:rise .45s cubic-bezier(.2,.7,.3,1) both; }
+  .record:nth-child(2) { animation-delay:.05s } .record:nth-child(3) { animation-delay:.1s }
+  .record:nth-child(4) { animation-delay:.15s } .record:nth-child(5) { animation-delay:.2s }
+  /* A verdict is stamped, so it lands like one. */
+  @keyframes press { 0% { opacity:0; transform:scale(1.5) rotate(-7deg); }
+                     60% { opacity:1; transform:scale(.94) rotate(1deg); }
+                     100% { opacity:1; transform:none; } }
+  .stamp { animation:press .5s cubic-bezier(.3,1.4,.5,1) both; animation-delay:.25s; }
+  /* Buttons acknowledge the press; the seal lifts because it is the live one. */
+  .acts button { transition:transform .13s ease, box-shadow .2s ease, opacity .2s ease; }
+  .acts button:not([disabled]):hover { transform:translateY(-1px); }
+  .acts button:not([disabled]):active { transform:translateY(0) scale(.985); }
+  .acts button.seal:not([disabled]):hover { box-shadow:0 3px 0 -1px var(--seal-soft); }
+  .gclock { transition:color .3s ease; }
+  .lfig b { animation:rise .5s cubic-bezier(.2,.7,.3,1) both; }
+  .lfig:nth-child(2) b { animation-delay:.06s } .lfig:nth-child(3) b { animation-delay:.12s }
+  .lfig:nth-child(4) b { animation-delay:.18s } .lfig:nth-child(5) b { animation-delay:.24s }
+  .lfig:nth-child(6) b { animation-delay:.3s }
+  @media (prefers-reduced-motion: reduce) {
+    .record, .stamp, .lfig b { animation:none !important; }
+  }
+  /* --- lifecycle rail ------------------------------------------------ */
+  .rail { list-style:none; display:flex; flex-wrap:wrap; gap:0; margin:20px 0 0; padding:0;
+          border-top:1px solid var(--rule); padding-top:16px; }
+  .rail li { flex:1 1 0; min-width:74px; position:relative; display:flex; flex-direction:column;
+             gap:7px; opacity:.34; transition:opacity .35s ease; }
+  .rail li.done, .rail li.now { opacity:1; }
+  .rail li::before { content:''; position:absolute; left:0; right:0; top:4px; height:1px;
+                     background:var(--rule-2); }
+  .rail li:first-child::before { left:4px; }
+  .rail li:last-child::before  { right:calc(100% - 5px); }
+  .rail .dot { width:9px; height:9px; border-radius:50%; background:var(--paper);
+               border:1px solid var(--rule-2); position:relative; z-index:1; }
+  .rail li.done .dot { background:var(--yes); border-color:var(--yes); }
+  .rail li.now .dot  { background:var(--appeal); border-color:var(--appeal);
+                       animation:pulse 2s ease-in-out infinite; }
+  .rail .rl { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:10px;
+              letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3); }
+  .rail li.done .rl { color:var(--ink-2); }
+  .rail li.now .rl  { color:var(--appeal); }
+  @keyframes pulse { 0%,100% { box-shadow:0 0 0 0 var(--appeal-soft); }
+                     50%     { box-shadow:0 0 0 5px transparent; } }
+  @media (prefers-reduced-motion: reduce) {
+    .rail li.now .dot { animation:none; }
+    * { transition-duration:.01ms !important; }
+  }
+  /* --- the rulebook ------------------------------------------------- */
+  .rules { display:grid; gap:34px; margin:0 0 40px; }
+  .rgroup h3 { font-family:'Instrument Serif',Georgia,serif; font-size:23px; font-weight:400;
+               margin:0 0 4px; display:flex; align-items:baseline; gap:10px; }
+  .rgroup h3 span { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px;
+                    letter-spacing:.08em; color:var(--ink-3); }
+  .rlede { margin:0 0 14px; font-size:14.5px; color:var(--ink-2); line-height:1.6; max-width:62ch; }
+  .rule { border-top:1px solid var(--rule); padding:0; }
+  .rule:last-child { border-bottom:1px solid var(--rule); }
+  .rule summary { list-style:none; cursor:pointer; padding:11px 0; display:grid;
+                  grid-template-columns:minmax(0,auto) 1fr; gap:4px 18px; align-items:baseline;
+                  transition:background .18s ease; }
+  .rule summary::-webkit-details-marker { display:none; }
+  .rule summary:hover { background:var(--leaf-2); }
+  .rule summary code { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:12px;
+                       color:var(--seal); white-space:normal; }
+  .rsum { font-size:14.5px; color:var(--ink-2); }
+  .rule[open] summary { background:var(--leaf-2); }
+  .rule > p { margin:0 0 12px; padding:0 0 0 2px; font-size:14.5px; line-height:1.65;
+              color:var(--ink-2); max-width:66ch; }
+  .rule > p:first-of-type { padding-top:2px; }
+  .rfix span, .rwhy span { display:block; font-family:'IBM Plex Mono',ui-monospace,monospace;
+                           font-size:10px; letter-spacing:.09em; text-transform:uppercase;
+                           color:var(--ink-3); margin-bottom:3px; }
+  /* --- a refusal, explained ------------------------------------------ */
+  .said { margin:0 0 12px; padding:8px 0 8px 14px; border-left:2px solid var(--no);
+          font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:12.5px; color:var(--ink); }
+  .plain { margin:0 0 12px; font-size:15px; color:var(--ink); }
+  .rnote { margin:14px 0 12px; padding-top:12px; border-top:1px solid var(--rule);
+           font-size:13.5px; color:var(--ink-3); }
   .gate { border:1px solid var(--appeal); background:var(--appeal-soft); padding:14px 18px; margin:18px 0 0;
           display:grid; grid-template-columns:auto 1fr; gap:2px 16px; align-items:baseline; }
   .gate.open { border-color:var(--rule-2); background:var(--leaf-2); }
@@ -405,6 +484,14 @@
     </div>
   </div>
 
+  <h2 id="rules"><span class="n">III.</span> The rules <span class="n">what these contracts refuse, and why</span></h2>
+  <p class="seclede">Seventy-one refusals are written into the two contracts. Most systems hide these;
+    they are shown here because a rule nobody can see is indistinguishable from a bug &mdash; and
+    because every one of them is here in response to something that could otherwise go wrong. Several
+    were added after an attempt to break the contract succeeded.</p>
+
+  <div class="rules" id="rulebook"></div>
+
   <footer>
     <span>Settled &middot; an adjudication oracle on GenLayer</span>
     <span id="onchain"></span>
@@ -462,6 +549,193 @@ const PHASE = {
   DISPUTED: 'Under appeal',
   FINAL:    'Closed',
 };
+
+
+/* ============================================================================
+   WHY IT REFUSED
+   Every message either contract can return, with what it means and what to do.
+   These are not error codes dressed up: each string below is written verbatim
+   in the contract, and each one exists because something could otherwise go
+   wrong. Showing them is the point — a rule nobody can see is indistinguishable
+   from a bug.
+   ========================================================================== */
+const RULES = {
+  'market is under its resolution embargo': {
+    group: 'timing',
+    plain: 'Too early. The embargo has not run out.',
+    why: `Fixed when the question was filed, before anything about the answer was known. Without it,
+          whoever read the source first could stake on the winning side and force the verdict through
+          in the next transaction, with nobody able to react.`,
+    fix: 'Wait for the countdown, then try again.' },
+  'the resolution window for this market has closed': {
+    group: 'timing',
+    plain: 'Too late. Resolution had a deadline and it passed.',
+    why: `Bounding the start is pointless without bounding the end. On a live source, whoever picks
+          the reading instant picks the answer — an unbounded window lets them wait for the reading
+          they want.`,
+    fix: 'The market can now only be expired, which reinstates no verdict.' },
+  'dispute window has not elapsed': {
+    group: 'timing',
+    plain: 'The window in which anyone may challenge this finding is still open.',
+    why: `Nothing downstream may spend a verdict that is still open to challenge.`,
+    fix: 'Wait for the countdown.' },
+  'the dispute window for this market has closed': {
+    group: 'timing',
+    plain: 'Too late to object to this finding.',
+    why: `A window is a window, not a starting gun. Without a deadline a dispute could be filed a
+          year later — or filed on sight of a pending close, purely to block it.`,
+    fix: 'Nothing to do. The finding stands.' },
+  'the window to adjudicate this dispute has closed': {
+    group: 'timing',
+    plain: 'The appeal was filed but nobody carried it in time.',
+    why: `An appeal with no deadline is not an appeal, it is an option: the disputer waits for the
+          source to drift somewhere more convenient and adjudicates then.`,
+    fix: 'The market can be expired, which reinstates the original finding.' },
+  'the window to adjudicate this dispute has not closed': {
+    group: 'timing',
+    plain: 'The appeal is still live. It cannot be timed out yet.',
+    why: `Expiry and adjudication used to run on two independent clocks, so whichever party the first
+          verdict favoured could expire a live appeal early and take the pot. Both now derive from one
+          timer, which makes the overlap impossible rather than merely unlikely.`,
+    fix: 'Either adjudicate the appeal or wait for its deadline.' },
+  'verdict is not final on finalized chain state yet': {
+    group: 'timing',
+    plain: 'The oracle has closed it, but the chain has not finalized that yet.',
+    why: `The second of two locks. The first says the arguing is over; this says the chain has stopped
+          moving. A resolution that could still be reorganised cannot move anyone's money.`,
+    fix: 'Wait out the finality window — roughly half an hour on Bradbury — and settle again.' },
+  'this market is not stale enough to expire': {
+    group: 'timing',
+    plain: 'Not stuck yet, just unattended.',
+    why: `Expiry is the escape hatch for a market that can never reach a verdict. Opening it early
+          would make it a cancel button.`,
+    fix: 'Wait, or resolve the market normally.' },
+
+  'link shorteners are not accepted as sources': {
+    group: 'source',
+    plain: 'The source is a shortened link.',
+    why: `A short link can be repointed after a market is created, which defeats the entire provenance
+          model at no cost. The check looks at the real host, so tricks like <code>bit.ly:443</code>
+          or <code>anything@bit.ly</code> do not get past it either.`,
+    fix: 'Use the destination URL directly.' },
+  'source url must be https': {
+    group: 'source',
+    plain: 'Plain http is not accepted.',
+    why: `Anyone on the network path can rewrite an http response, which would make every guarantee
+          downstream of it worthless.`,
+    fix: 'Use https.' },
+  'source url must not specify a non-standard port': {
+    group: 'source',
+    plain: 'The URL names a port other than 443.',
+    why: `The runtime refuses non-standard ports when fetching. Accepting one here would create a
+          market that can never be resolved — better to reject it while it is still a typo.`,
+    fix: 'Remove the port.' },
+  'a mutable source has no creator-supplied digest; use snapshot()': {
+    group: 'source',
+    plain: 'You cannot commit in advance to what a changeable source will say.',
+    why: `An earlier version let the creator type a digest here and showed it to backers as evidence.
+          Nothing ever checked it — market creation cannot fetch anything. A commitment is worth the
+          observation behind it, so the observation is taken separately by the validators.`,
+    fix: 'Leave the digest empty and attest the source afterwards.' },
+  'a pinned source requires a 64-character keccak256 digest': {
+    group: 'source',
+    plain: 'Content-addressed sources must commit to their contents.',
+    why: `A pinned URL names its own content, so the digest is a claim that can actually be checked
+          at resolution — and is.`,
+    fix: 'Supply the keccak256 of the source bytes.' },
+  'the source could not be read for a baseline': {
+    group: 'source',
+    plain: 'The validators could not agree on what the source says.',
+    why: `Attestation demands byte-identical reads across independent machines. A source carrying a
+          timestamp, a rotating banner or a per-request identifier fails it — and a source they cannot
+          agree on today will deadlock the verdict after the event, once money is already staked.
+          Finding out now is the feature.`,
+    fix: 'Use a source that returns identical bytes on every request.' },
+  'this market already has a baseline': {
+    group: 'source',
+    plain: 'The source has already been attested.',
+    why: `A baseline taken twice is not a baseline.`,
+    fix: 'Nothing to do.' },
+  'the embargo has lifted; a baseline is no longer meaningful': {
+    group: 'source',
+    plain: 'Too late to record a "before" picture.',
+    why: `The source may already have moved.`,
+    fix: 'File a fresh market and attest it promptly.' },
+
+  'the market creator cannot stake on their own market': {
+    group: 'stakes',
+    plain: 'Whoever filed the question may not bet on it.',
+    why: `The creator chose the question, the criteria and the source. Letting them bet as well turns
+          every one of those choices into a way to pay themselves.`,
+    fix: 'Stake from a different account.' },
+  'staking has closed for this market': {
+    group: 'stakes',
+    plain: 'The book shut when the embargo lifted.',
+    why: `Betting closes on the clock rather than on an observed status change, so nobody can read the
+          source and stake on the answer moments before resolving it.`,
+    fix: 'Too late for this market.' },
+  'market has no observed source baseline; snapshot it first': {
+    group: 'stakes',
+    plain: 'Nobody has attested the source yet.',
+    why: `The most useful check here. It proves the source reads identically to independent machines —
+          which decides whether this market can settle at all — and it does it while the pool is still
+          empty.`,
+    fix: 'Attest the source, then open the pool.' },
+  'only a mutable-source market can be staked on': {
+    group: 'stakes',
+    plain: 'Content-addressed markets are refused, deliberately.',
+    why: `This looks backwards for about ten seconds. If the bytes behind a URL are fixed, so is the
+          answer — anyone willing to read the document already knows it. Nothing is being predicted;
+          the market is a race to be last to look.`,
+    fix: 'Pinned sources are for adjudicating documents, not for betting on.' },
+  'market has no usable resolution embargo; create it with resolve_after_seconds': {
+    group: 'stakes',
+    plain: 'The market can be resolved too soon to open a book on it.',
+    why: `A market with no embargo puts the earliest resolution in the past. There would be no window
+          in which to take a position.`,
+    fix: 'File a market with an embargo of at least ten minutes.' },
+  'the source baseline is too old for this closing time': {
+    group: 'stakes',
+    plain: 'The attestation is stale relative to when betting closes.',
+    why: `A snapshot proves the source had not moved at the instant it was taken. Three weeks before
+          the book closes, that says nothing useful — and the gap is exactly where an insider operates.`,
+    fix: 'Attest closer to the closing time.' },
+  'a stake must carry value': { group: 'stakes',
+    plain: 'A bet with no money on it is not a bet.', why: '', fix: 'Enter an amount.' },
+  'pool is not settled yet': { group: 'stakes',
+    plain: 'The result has not been fixed yet.', why: '', fix: 'Settle the pool first.' },
+  'nothing staked on this market': { group: 'stakes',
+    plain: 'This account has nothing to collect.', why: '', fix: 'Only backers can claim.' },
+  'already claimed': { group: 'stakes',
+    plain: 'This account has already withdrawn.', why: '', fix: 'Nothing to do.' },
+
+  'market is not open':        { group: 'lifecycle', plain: 'Already resolved, disputed or closed.', why: '', fix: '' },
+  'only a resolved market can be disputed':  { group: 'lifecycle', plain: 'Nothing to object to yet.', why: '', fix: '' },
+  'only a resolved market can be finalized': { group: 'lifecycle', plain: 'Not at a stage that can be closed.', why: '', fix: '' },
+  'market is not under dispute':             { group: 'lifecycle', plain: 'No appeal is outstanding.', why: '', fix: '' },
+  'this market is already final':            { group: 'lifecycle', plain: 'Closed. No further appeal.', why: '', fix: '' },
+  'this market is not stuck; finalize it':   { group: 'lifecycle',
+    plain: 'This one is unattended, not jammed.', why: `Closing it is permissionless and available to anyone.`, fix: 'Close the dispute window instead.' },
+  'market id already exists':  { group: 'lifecycle', plain: 'That reference is taken.', why: '', fix: 'Pick another.' },
+  'no such market':            { group: 'lifecycle', plain: 'No question filed under that reference.', why: '', fix: '' },
+  'no pool for this market':   { group: 'lifecycle', plain: 'No book has been opened on it.', why: '', fix: '' },
+  'pool is already settled':   { group: 'lifecycle', plain: 'The result is already fixed.', why: '', fix: '' },
+  'a pool is already open for this market': { group: 'lifecycle', plain: 'One book per question.', why: '', fix: '' },
+};
+
+const GROUPS = {
+  timing:    ['Timing', 'Every rule below exists because whoever controls <em>when</em> something happens can control <em>what</em> it says.'],
+  source:    ['The source', 'An oracle is only as good as what it reads, and a source nobody attested is a claim nobody checked.'],
+  stakes:    ['Money', 'Rules that decide who may bet, when the book shuts, and when a verdict becomes spendable.'],
+  lifecycle: ['Order of play', 'A market moves one way. These refuse anything out of sequence.'],
+};
+
+function ruleFor(msg) {
+  if (!msg) return null;
+  const t = String(msg).trim().toLowerCase();
+  for (const k of Object.keys(RULES)) if (t.includes(k.toLowerCase())) return { key: k, ...RULES[k] };
+  return null;
+}
 
 // ---------- templates ----------
 const spinTpl = document.getElementById('spin');
@@ -606,6 +880,30 @@ async function load() {
   } catch (e) { say('Could not read', esc(e.message || String(e)), 'err'); }
 }
 document.getElementById('load').addEventListener('click', load);
+
+/* The eight things that have to happen, and which have. A reviewer landing on a
+   half-finished market should be able to see the shape of the process without
+   reading a word of prose. */
+function rail(m, pool) {
+  const phase = String(m.status || 'OPEN');
+  const ruled = phase !== 'OPEN';
+  const steps = [
+    ['Filed',     true],
+    ['Attested',  !!m.baseline_observed],
+    ['Book open', !!pool],
+    ['Staked',    !!(pool && (BigInt(pool.total_yes || 0) + BigInt(pool.total_no || 0)) > 0n)],
+    ['Ruled',     ruled],
+    ['Closed',    phase === 'FINAL'],
+    ['Settled',   !!(pool && pool.settled)],
+    ['Claimed',   false],
+  ];
+  // The first not-yet-done step is the one in progress.
+  const next = steps.findIndex(([, done]) => !done);
+  return `<ol class="rail">${steps.map(([label, done], i) => `
+    <li class="${done ? 'done' : (i === next ? 'now' : '')}">
+      <span class="dot"></span><span class="rl">${label}</span>
+    </li>`).join('')}</ol>`;
+}
 
 function clock(secs) {
   if (secs <= 0) return '0:00';
@@ -765,6 +1063,7 @@ function render(markets) {
       act = `<span class="closed">Closed &middot; no further appeal</span>`;
     }
 
+    const track = rail(m, pool);
     const wait = waitingOn(m);
     if (wait && wait.gate) {
       // Disable exactly the button this gate would refuse, and say why. A
@@ -831,6 +1130,7 @@ function render(markets) {
           ${note.body.map(p => `<p>${p}</p>`).join('')}
           ${note.link ? `<p><a href="${note.link[0]}" target="_blank" rel="noopener">${esc(note.link[1])} &rarr;</a></p>` : ''}
         </div>` : ''}
+      ${track}
       ${gate}
       ${evidence}
       ${stakes}
@@ -890,12 +1190,19 @@ async function send(fn, args, note, verify, opts = {}) {
 
       console.log('[Settled] full receipt for ' + hash, receipt);
 
-      say('Refused by the contract',
-        (why ? `<b>&ldquo;${esc(why)}&rdquo;</b><br><br>` : '') +
-        `The transaction was accepted, and the contract then declined to act (${esc(result)}).
-         That is a rule firing, not a crash &mdash; nothing was changed and nothing was lost.
-         ${why ? '' : 'The full receipt has been printed to the browser console (Cmd+Option+I).'}
-         <br><br><a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Details &rarr;</a>`, 'err');
+      const rule = ruleFor(why) || ruleFor(opts.expect);
+      say('The contract refused &mdash; here is why',
+        (why ? `<blockquote class="said">${esc(why)}</blockquote>` : '') +
+        (rule ? `<p class="plain">${rule.plain}</p>
+                 ${rule.why ? `<p class="rwhy"><span>Why this rule exists</span>${rule.why}</p>` : ''}
+                 ${rule.fix ? `<p class="rfix"><span>What to do</span>${esc(rule.fix)}</p>` : ''}`
+              : `<p class="plain">A rule fired. Nothing was changed and nothing was lost.</p>
+                 <p class="rwhy"><span>Detail</span>The full receipt is in the browser console
+                    (Cmd+Option+I), and the transaction page has the contract's own message.</p>`) +
+        `<p class="rnote">This is a rule working, not a fault. Every refusal in these contracts is a
+          sentence someone wrote on purpose &mdash; there are 71 of them, listed under
+          <a href="#rules">The rules</a>.</p>
+         <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">The transaction &rarr;</a>`, 'err');
       return false;
     }
 
@@ -967,14 +1274,14 @@ document.getElementById('records').addEventListener('click', async (ev) => {
       `Every validator will fetch this source and they must agree on its hash exactly.
        This is what records what it said beforehand &mdash; and it is also the test of whether the
        source can be read identically by independent machines at all.`,
-      attested);
+      attested, { expect: 'the source could not be read for a baseline' })
     return;
   }
 
   if (act === 'resolve') {
     const before = await status();
     await send('resolve', [id], 'Each validator will read the source and rule independently.',
-      async () => (await status()) !== before);
+      async () => (await status()) !== before, { expect: 'market is under its resolution embargo' })
     return;
   }
 
@@ -982,7 +1289,7 @@ document.getElementById('records').addEventListener('click', async (ev) => {
     await send('finalize', [id],
       `Closing the window in which this finding could be challenged. Until it elapses, nothing downstream
        is allowed to spend the verdict.`,
-      async () => (await status()) === 'FINAL', { slow: false });
+      async () => (await status()) === 'FINAL', { expect: 'dispute window has not elapsed', slow: false });
     return;
   }
 
@@ -1008,7 +1315,7 @@ document.getElementById('records').addEventListener('click', async (ev) => {
     await send('open_pool', [id],
       `Binding a pool of real stakes to this question. The contract checks five things about the oracle
        before it will accept anyone's money.`,
-      pooled, { to: P, slow: false });
+      pooled, { expect: 'market has no observed source baseline; snapshot it first', to: P, slow: false });
     return;
   }
 
@@ -1033,7 +1340,7 @@ document.getElementById('records').addEventListener('click', async (ev) => {
     await send('settle', [id],
       `Reading the final verdict and fixing the result. The payout contract grants itself no discretion here
        &mdash; it records what the oracle said.`,
-      poolSettled, { to: P, slow: false });
+      poolSettled, { expect: 'verdict is not final on finalized chain state yet', to: P, slow: false });
     return;
   }
 
@@ -1042,7 +1349,7 @@ document.getElementById('records').addEventListener('click', async (ev) => {
     await send('claim', [id],
       `Withdrawing whatever this wallet is owed. If you backed the losing side there is nothing to collect,
        and the contract will say so.`,
-      null, { to: P, slow: false });
+      null, { expect: 'nothing staked on this market', to: P, slow: false });
     return;
   }
 });
@@ -1090,6 +1397,23 @@ setInterval(() => {
   // The moment a gate opens, reload so the button it was blocking comes alive.
   if (expired) load();
 }, 1000);
+
+// ---------- the rulebook ----------
+(function rulebook() {
+  const byGroup = {};
+  for (const [msg, r] of Object.entries(RULES)) (byGroup[r.group] ||= []).push([msg, r]);
+  document.getElementById('rulebook').innerHTML = Object.entries(GROUPS).map(([g, [title, lede]]) => `
+    <section class="rgroup">
+      <h3>${title} <span>${(byGroup[g] || []).length}</span></h3>
+      <p class="rlede">${lede}</p>
+      ${(byGroup[g] || []).map(([msg, r]) => `
+        <details class="rule">
+          <summary><code>${esc(msg)}</code><span class="rsum">${r.plain}</span></summary>
+          ${r.why ? `<p>${r.why}</p>` : ''}
+          ${r.fix ? `<p class="rfix"><span>What to do</span>${esc(r.fix)}</p>` : ''}
+        </details>`).join('')}
+    </section>`).join('');
+})();
 
 // Open the record on arrival — a reviewer should not have to press anything.
 load();
