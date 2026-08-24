@@ -231,6 +231,17 @@
   @keyframes gl-halo{0%,83%{opacity:0;transform:scale(.9)}89%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.14)}}
   @keyframes gl-core{0%,83%{opacity:0;transform:scale(.2)}90%,95%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.3)}}
   @media (prefers-reduced-motion: reduce){ .gl-rot,.gl-lit,.gl-ok,.gl-halo,.gl-core{animation:none} .gl-lit{opacity:1} }
+  .gate { border:1px solid var(--appeal); background:var(--appeal-soft); padding:14px 18px; margin:18px 0 0;
+          display:grid; grid-template-columns:auto 1fr; gap:2px 16px; align-items:baseline; }
+  .gate.open { border-color:var(--rule-2); background:var(--leaf-2); }
+  .glabel { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:10.5px; letter-spacing:.09em;
+            text-transform:uppercase; color:var(--appeal); grid-column:1; }
+  .gate.open .glabel { color:var(--ink-3); }
+  .gate .gclock { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:19px; font-weight:500;
+                  color:var(--appeal); grid-column:2; font-variant-numeric:tabular-nums; }
+  .gate.open .gclock { color:var(--yes); }
+  .gate p { grid-column:1/-1; margin:8px 0 0; font-size:14px; line-height:1.55; color:var(--ink-2); }
+  .acts button[disabled] { opacity:.4; cursor:not-allowed; }
   .ledger { border:1px solid var(--rule-2); background:var(--leaf); padding:22px 24px; margin:0 0 34px; }
   .lrow { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:22px 28px; }
   .lfig { display:flex; flex-direction:column; gap:4px; }
@@ -499,6 +510,7 @@ const payoutAddress   = () => paddrInput.value.trim();
 
 // Pools, keyed by market id, refreshed alongside the record.
 let POOLS = {};
+let DISPUTE_WINDOW = 300;
 
 const GEN = 10n ** 18n;
 function gen(wei) {
@@ -567,6 +579,13 @@ async function load() {
 
     // Pools are optional: the oracle stands alone, and a reviewer who has only
     // the oracle address should still see the whole record.
+    // The oracle publishes its own timings. Reading them means the page can
+    // explain a refusal before it happens rather than after.
+    try {
+      DISPUTE_WINDOW = Number(await readClient.readContract({
+        address: addr, functionName: 'dispute_window_seconds', args: [] })) || 300;
+    } catch (e) { DISPUTE_WINDOW = 300; }
+
     POOLS = {};
     const paddr = payoutAddress();
     if (paddr) {
@@ -583,6 +602,48 @@ async function load() {
   } catch (e) { say('Could not read', esc(e.message || String(e)), 'err'); }
 }
 document.getElementById('load').addEventListener('click', load);
+
+function clock(secs) {
+  if (secs <= 0) return '0:00';
+  const m = Math.floor(secs / 60), r = secs % 60;
+  if (m >= 60) return `${Math.floor(m / 60)}h ${m % 60}m`;
+  return `${m}:${String(r).padStart(2, '0')}`;
+}
+
+// What this entry is waiting for, if anything. Returned as data rather than
+// markup so the ticker can refresh the number without redrawing the record.
+function waitingOn(m) {
+  const now = Math.floor(Date.now() / 1000);
+  const phase = String(m.status || 'OPEN');
+
+  if (phase === 'OPEN') {
+    const opens = Number(m.resolve_not_before || 0);
+    if (opens && now < opens) {
+      return { gate: 'resolve', left: opens - now, label: 'Embargo',
+        why: `Nobody may put this to the validators yet &mdash; not you, not anyone. The embargo was
+              fixed when the question was filed, before a single fact about the answer was known.
+              Betting closes at the same instant, so no one can read the source and then rush a
+              verdict through before others can react.` };
+    }
+    return { gate: null, label: 'Embargo elapsed',
+      why: `The embargo has run out. This is resolvable now, and betting has closed.` };
+  }
+
+  if (phase === 'RESOLVED') {
+    const t = Date.parse(String(m.resolved_at || '').replace(' ', 'T'));
+    if (!isNaN(t)) {
+      const closes = Math.floor(t / 1000) + DISPUTE_WINDOW;
+      if (now < closes) {
+        return { gate: 'finalize', left: closes - now, label: 'Dispute window',
+          why: `The finding is entered but not yet spendable. Anyone may challenge it until this
+                elapses; nothing downstream may spend a verdict that is still open to challenge.` };
+      }
+    }
+    return { gate: null, label: 'Dispute window closed',
+      why: `Unchallenged. This can be closed for spending now.` };
+  }
+  return null;
+}
 
 function ledger(markets) {
   const rows = Object.entries(markets);
@@ -666,6 +727,20 @@ function render(markets) {
       act = `<span class="closed">Closed &middot; no further appeal</span>`;
     }
 
+    const wait = waitingOn(m);
+    if (wait && wait.gate) {
+      // Disable exactly the button this gate would refuse, and say why. A
+      // reviewer who clicks and gets a bare refusal reads it as broken; one who
+      // is told what is being waited for reads it as designed.
+      const re = new RegExp(`(<button[^>]*data-act="${wait.gate}"[^>]*)>`);
+      act = act.replace(re, '$1 disabled title="Not yet — see the countdown above">');
+    }
+    const gate = wait ? `<div class="gate${wait.gate ? '' : ' open'}">
+        <span class="glabel">${esc(wait.label)}</span>
+        ${wait.gate ? `<b class="gclock" data-until="${Math.floor(Date.now()/1000) + wait.left}">${clock(wait.left)}</b>` : `<b class="gclock">&#10003;</b>`}
+        <p>${wait.why}</p>
+      </div>` : '';
+
     const prov = m.provenance === 'PINNED'
       ? `Content-addressed. The digest committed when this was filed must match, or no finding is written.`
       : `Changeable by whoever publishes it. Attested below before betting opened; that is not proof of what it says now.`;
@@ -718,6 +793,7 @@ function render(markets) {
           ${note.body.map(p => `<p>${p}</p>`).join('')}
           ${note.link ? `<p><a href="${note.link[0]}" target="_blank" rel="noopener">${esc(note.link[1])} &rarr;</a></p>` : ''}
         </div>` : ''}
+      ${gate}
       ${evidence}
       ${stakes}
       <div class="acts">${act}</div>
@@ -962,6 +1038,20 @@ document.getElementById('demo').addEventListener('click', () => {
     <b>confirmed</b> and put it to the validators. The point of using a source you control is that the
     event can be made to happen on cue instead of waiting for the world.`, 'ok');
 });
+
+// One interval for every countdown on the page. Redrawing the record each second
+// would fight with anything the reader is doing; only the digits change.
+setInterval(() => {
+  const now = Math.floor(Date.now() / 1000);
+  let expired = false;
+  document.querySelectorAll('.gclock[data-until]').forEach(el => {
+    const left = Number(el.dataset.until) - now;
+    el.textContent = clock(left);
+    if (left <= 0) expired = true;
+  });
+  // The moment a gate opens, reload so the button it was blocking comes alive.
+  if (expired) load();
+}, 1000);
 
 // Open the record on arrival — a reviewer should not have to press anything.
 load();
