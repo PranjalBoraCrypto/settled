@@ -421,11 +421,13 @@
     <div class="docket">
       <div class="f">
         <label for="addr">Oracle &mdash; Settled</label>
-        <input id="addr" placeholder="0x&hellip;" spellcheck="false" value="">
+        <input id="addr" placeholder="0x&hellip;" spellcheck="false"
+               value="0x3AA27bb63D456D83fcC4d3fAC34e5e4BbD6a0138">
       </div>
       <div class="f">
         <label for="paddr">Stakes &mdash; Payout</label>
-        <input id="paddr" placeholder="0x&hellip;" spellcheck="false" value="">
+        <input id="paddr" placeholder="0x&hellip;" spellcheck="false"
+               value="0xb25975a91277754480CF6f9092e6aF7Db31e824B">
       </div>
       <button id="load">Open the record</button>
     </div>
@@ -787,6 +789,7 @@ const payoutAddress   = () => paddrInput.value.trim();
 // Pools, keyed by market id, refreshed alongside the record.
 let POOLS = {};
 let DISPUTE_WINDOW = 300;
+let POOL_ERR = null;
 // Bradbury's finalization window, as reported on its own transaction pages.
 const FINALITY_WINDOW = 1800;
 
@@ -864,12 +867,15 @@ async function load() {
         address: addr, functionName: 'dispute_window_seconds', args: [] })) || 300;
     } catch (e) { DISPUTE_WINDOW = 300; }
 
-    POOLS = {};
+    POOLS = {}; POOL_ERR = null;
     const paddr = payoutAddress();
     if (paddr) {
       try {
         POOLS = await readClient.readContract({ address: paddr, functionName: 'get_pools', args: [] }) || {};
-      } catch (e) { POOLS = {}; }
+      } catch (e) {
+        POOLS = {};
+        POOL_ERR = String(e?.message || e);
+      }
     }
     render(data || {});
     hush();
@@ -1008,6 +1014,15 @@ function ledger(markets) {
     fig(closed, 'closed for spending') +
     (pools.length ? fig(gen(staked) + ' GEN', 'staked on outcomes') : '') +
     (settled ? fig(gen(paid) + ' GEN', 'released to backers', 'paid') : '');
+
+  if (!payoutAddress() || POOL_ERR) {
+    document.getElementById('lnote').innerHTML =
+      `<b>The stakes contract is not being read right now</b>, so this record is showing the oracle
+       alone &mdash; no pools, no balances, and no settle or claim actions.
+       ${POOL_ERR ? `The read failed: <code>${esc(POOL_ERR)}</code>` :
+         'Put the Payout address in the second box above and press Open the record.'}`;
+    return;
+  }
 
   document.getElementById('lnote').innerHTML = settled
     ? `<b>${gen(paid)} GEN has changed hands because validators read a web page and agreed on what it said.</b>
