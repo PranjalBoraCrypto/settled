@@ -234,6 +234,8 @@
   .gate { border:1px solid var(--appeal); background:var(--appeal-soft); padding:14px 18px; margin:18px 0 0;
           display:grid; grid-template-columns:auto 1fr; gap:2px 16px; align-items:baseline; }
   .gate.open { border-color:var(--rule-2); background:var(--leaf-2); }
+  .gate.soft { border-color:var(--seal); background:var(--seal-soft); }
+  .gate.soft .glabel, .gate.soft .gclock { color:var(--seal); }
   .glabel { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:10.5px; letter-spacing:.09em;
             text-transform:uppercase; color:var(--appeal); grid-column:1; }
   .gate.open .glabel { color:var(--ink-3); }
@@ -511,6 +513,8 @@ const payoutAddress   = () => paddrInput.value.trim();
 // Pools, keyed by market id, refreshed alongside the record.
 let POOLS = {};
 let DISPUTE_WINDOW = 300;
+// Bradbury's finalization window, as reported on its own transaction pages.
+const FINALITY_WINDOW = 1800;
 
 const GEN = 10n ** 18n;
 function gen(wei) {
@@ -642,6 +646,40 @@ function waitingOn(m) {
     return { gate: null, label: 'Dispute window closed',
       why: `Unchallenged. This can be closed for spending now.` };
   }
+  if (phase === 'FINAL') {
+    const pool = POOLS[m.id];
+    if (pool && !pool.settled) {
+      // Bradbury publishes this as a "finalization window" on every transaction
+      // — roughly half an hour. Measured from when the verdict was closed, since
+      // that is the write the payout contract needs to see finalized.
+      const ft = Date.parse(String(m.finalized_at || '').replace(' ', 'T'));
+      if (!isNaN(ft)) {
+        const ready = Math.floor(ft / 1000) + FINALITY_WINDOW;
+        if (now < ready) {
+          return { gate: 'settle', left: ready - now, label: 'Second lock &middot; chain finality',
+            why: `The oracle has closed this &mdash; the arguing is over. The payout contract now waits
+                  for the <b>chain</b> to finalize that decision, because it reads verdicts only at
+                  finalized state. A resolution that could still be reorganised cannot move anyone's
+                  money. This is the second of the two locks, and the reason a verdict is not the same
+                  thing as a payment. Approximate: Bradbury publishes the exact window on the
+                  transaction itself.` };
+        }
+        return { gate: null, label: 'Both locks open',
+          why: `The verdict is closed and the chain has finalized it. The pool can settle.` };
+      }
+      // No countdown is possible here: chain finality has no published deadline,
+      // and the bundled client cannot read finalized state to check. So the
+      // honest thing is to say what the second lock is and that it may refuse
+      // once or twice, rather than let a refusal read as a fault.
+      return { gate: null, label: 'Second lock &middot; chain finality', soft: true,
+        why: `The oracle has closed this &mdash; the arguing is over. But the payout contract reads
+              verdicts <b>only at chain-finalized state</b>, and the chain may not have finalized this
+              one yet. Settling may be refused for a few minutes, which is the rule working: money
+              waits both for the humans to stop arguing and for the chain to stop moving. Click again
+              in a couple of minutes.` };
+    }
+  }
+
   return null;
 }
 
@@ -735,9 +773,9 @@ function render(markets) {
       const re = new RegExp(`(<button[^>]*data-act="${wait.gate}"[^>]*)>`);
       act = act.replace(re, '$1 disabled title="Not yet — see the countdown above">');
     }
-    const gate = wait ? `<div class="gate${wait.gate ? '' : ' open'}">
-        <span class="glabel">${esc(wait.label)}</span>
-        ${wait.gate ? `<b class="gclock" data-until="${Math.floor(Date.now()/1000) + wait.left}">${clock(wait.left)}</b>` : `<b class="gclock">&#10003;</b>`}
+    const gate = wait ? `<div class="gate${wait.gate ? '' : (wait.soft ? ' soft' : ' open')}">
+        <span class="glabel">${wait.label}</span>
+        ${wait.gate ? `<b class="gclock" data-until="${Math.floor(Date.now()/1000) + wait.left}">${clock(wait.left)}</b>` : `<b class="gclock">${wait.soft ? '&#8987;' : '&#10003;'}</b>`}
         <p>${wait.why}</p>
       </div>` : '';
 
