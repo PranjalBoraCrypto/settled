@@ -1,38 +1,939 @@
-Settled
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settled — the record</title>
+<meta name="description" content="An adjudication oracle for ambiguous prediction-market questions. GenLayer validators read the source independently and must agree before anything is recorded.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     Settled — a record of judgements.
+     The visual language is documentary rather than dashboard: this
+     is a ledger of verdicts, so it is set like one. Paper, rules,
+     stamped outcomes, evidence quoted and attributed.
+     ============================================================ */
+  :root {
+    --paper:      #F6F5F1;
+    --leaf:       #FFFFFE;
+    --leaf-2:     #EFEEE8;
+    --ink:        #16161A;
+    --ink-2:      #4E4E58;
+    --ink-3:      #82828C;
+    --rule:       #DCDBD3;
+    --rule-2:     #C6C5BB;
+    --seal:       #110FFF;   /* Kinetic Cobalt — the official stamp */
+    --seal-soft:  #E7E7FF;
+    --yes:        #1B6E3C;
+    --yes-soft:   #E4F0E8;
+    --no:         #A32020;
+    --no-soft:    #F7E6E6;
+    --null:       #5A5A64;
+    --null-soft:  #EAEAE6;
+    --appeal:     #8A5A00;
+    --appeal-soft:#F7EEDC;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:    #121316;
+      --leaf:     #191A1E;
+      --leaf-2:   #212228;
+      --ink:      #ECEBE5;
+      --ink-2:    #A9A9B2;
+      --ink-3:    #7A7A84;
+      --rule:     #2A2B31;
+      --rule-2:   #3A3B43;
+      --seal:     #8280FF;
+      --seal-soft:#1D1D33;
+      --yes:      #4FD07E;
+      --yes-soft: #12251A;
+      --no:       #FF7B7B;
+      --no-soft:  #2A1717;
+      --null:     #90909A;
+      --null-soft:#22232A;
+      --appeal:   #E0A64A;
+      --appeal-soft:#2A2113;
+    }
+  }
 
+  * { box-sizing: border-box }
+  html { -webkit-text-size-adjust: 100% }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: Newsreader, Georgia, "Times New Roman", serif;
+    font-size: 17px; line-height: 1.62; font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 28px }
+  a { color: var(--seal); text-underline-offset: 3px; text-decoration-thickness: .06em }
+  :focus-visible { outline: 2px solid var(--seal); outline-offset: 3px }
 
-No wallet
-CONNECT
-ADJUDICATION ORACLE · GENLAYER TESTNET BRADBURY · CHAIN 4221
-Prediction markets don't fail at pricing. They fail at resolution.
-When a market's wording finally meets reality, someone has to read a source and rule on what it means — a judgement no deterministic chain can make. That work is handed today to committees and token-weighted votes. Settled hands it to the network itself: every validator fetches the source, reads it, and rules independently. Nothing is recorded unless they agree.
-A verdict nobody spends is never really tested, because being wrong costs nothing. So these findings are bound to a second contract that holds real stakes and pays them out on the result. You can watch a wallet balance change because validators read a web page. That is the claim, and everything below is the apparatus for making it survive contact with someone trying to break it.
-THE VERDICT MOVES MONEY
-Findings are spendable only at FINAL, and the payout contract reads them only at chain-finalized state — so a result waits both for the arguing to stop and for the chain to stop.
-THE SOURCE IS ATTESTED FIRST
-Before betting opens, validators fetch the source and must agree on its hash exactly. That records what it said beforehand, and it rejects sources they cannot read identically — while the pool is still empty rather than after the money is in.
-DEADLOCK IS A PERMITTED OUTCOME
-If the validators cannot agree, the transaction is undetermined, nothing is written, and the question stays open. A blank beats a wrong entry in a permanent record.
-ORACLE — SETTLED
-STAKES — PAYOUT
-OPEN THE RECORD
-I.
-The record
+  /* ---------------- masthead ---------------- */
+  .masthead { border-bottom: 1px solid var(--ink); background: var(--paper);
+              position: sticky; top: 0; z-index: 30 }
+  .masthead .wrap { display: flex; align-items: center; gap: 18px; padding: 13px 28px }
+  .wordmark { display: flex; align-items: center; gap: 11px; font-family: "Instrument Serif", Georgia, serif;
+              font-size: 25px; letter-spacing: -.01em; line-height: 1 }
+  .grow { flex: 1 }
+  .acct { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-2);
+          border: 1px solid var(--rule-2); padding: 5px 10px; display: flex; align-items: center; gap: 8px }
+  .lamp { width: 6px; height: 6px; background: var(--rule-2); border-radius: 50% }
+  .lamp.on { background: var(--yes) }
 
-Each entry is a question put to the network, the criteria it was judged against, and what the validators returned. Entries still open are not unfinished work; the annotations say which are which.
+  button {
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; font-weight: 500;
+    letter-spacing: .07em; text-transform: uppercase; cursor: pointer;
+    background: var(--leaf); color: var(--ink); border: 1px solid var(--ink);
+    padding: 9px 15px; border-radius: 0; transition: background .12s, color .12s;
+  }
+  button:hover:not(:disabled) { background: var(--ink); color: var(--paper) }
+  button:disabled { opacity: .35; cursor: not-allowed }
+  button.seal { background: var(--seal); border-color: var(--seal); color: #fff }
+  button.seal:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); color: var(--paper) }
+  button.quiet { border-color: var(--rule-2); color: var(--ink-2) }
+  button.quiet:hover:not(:disabled) { background: var(--ink-2); color: var(--paper) }
 
-Opening the record…
-II.
-Put a question
-Name what is being asked, exactly what would settle it either way, and where it should be read from. Ambiguity written here is ambiguity the network has to arbitrate later.
-REFERENCE
-SOURCE
-QUESTION
-CRITERIA FOR A FINDING
-EMBARGO — SECONDS BEFORE THIS MAY BE RESOLVED
-1200
-Fixed now, before anyone knows anything. Nobody may resolve the question before it elapses, and betting closes at the same instant — so no one can read the answer and then rush the verdict through before others can react. Twenty minutes suits a demonstration; a real market would use days.
-FILE IT
-USE A WORKED EXAMPLE
-SETTLED · AN ADJUDICATION ORACLE ON GENLAYER
+  /* ---------------- opening statement ---------------- */
+  .opening { padding: 74px 0 8px; border-bottom: 1px solid var(--rule) }
+  .filed { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .18em;
+           text-transform: uppercase; color: var(--ink-3); margin-bottom: 26px }
+  h1 { font-family: "Instrument Serif", Georgia, serif; font-weight: 400;
+       font-size: clamp(42px, 7vw, 74px); line-height: 1.02; letter-spacing: -.018em;
+       margin: 0 0 26px; text-wrap: balance; max-width: 21ch }
+  h1 em { font-style: italic; color: var(--seal) }
+  .standfirst { font-size: 19.5px; line-height: 1.6; color: var(--ink-2); max-width: 60ch; margin: 0 0 34px }
+  .standfirst strong { color: var(--ink); font-weight: 600 }
 
+  .grounds { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+             gap: 0; border-top: 1px solid var(--rule); margin-bottom: 40px }
+  .ground { padding: 22px 26px 26px; border-right: 1px solid var(--rule) }
+  .ground:first-child { padding-left: 0 }
+  .ground:last-child { border-right: none }
+  .ground h3 { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .13em;
+               text-transform: uppercase; color: var(--seal); margin: 0 0 10px; font-weight: 500 }
+  .ground p { margin: 0; font-size: 15.5px; line-height: 1.58; color: var(--ink-2) }
+  @media (max-width: 700px) { .ground { border-right: none; border-bottom: 1px solid var(--rule); padding: 20px 0 } }
+
+  /* ---------------- docket bar ---------------- */
+  .docket { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;
+            padding: 26px 0 30px; border-bottom: 1px solid var(--rule) }
+  .docket .f { flex: 1; min-width: 300px }
+  label { display: block; font-family: "IBM Plex Mono", monospace; font-size: 10.5px;
+          letter-spacing: .13em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px }
+  input, textarea {
+    width: 100%; background: var(--leaf); border: 1px solid var(--rule-2); color: var(--ink);
+    padding: 11px 13px; font-family: "IBM Plex Mono", monospace; font-size: 13px; border-radius: 0;
+  }
+  textarea { font-family: Newsreader, Georgia, serif; font-size: 15.5px; min-height: 78px;
+             resize: vertical; line-height: 1.55 }
+  input:focus, textarea:focus { outline: none; border-color: var(--seal) }
+
+  /* ---------------- section rules ---------------- */
+  h2 { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; font-size: 30px;
+       letter-spacing: -.01em; margin: 58px 0 6px; display: flex; align-items: baseline; gap: 14px }
+  h2 .n { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-3); letter-spacing: .1em }
+  .seclede { color: var(--ink-3); font-size: 15px; margin: 0 0 26px; max-width: 62ch; font-style: italic }
+
+  /* ---------------- case records ---------------- */
+  .records { display: flex; flex-direction: column; gap: 0 }
+  .record { border-top: 1px solid var(--ink); padding: 30px 0 34px }
+  .record:last-child { border-bottom: 1px solid var(--rule) }
+  .rhead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px }
+  .no-ref { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-3);
+            letter-spacing: .04em; margin-left: auto }
+
+  .stamp { font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 500;
+           letter-spacing: .14em; text-transform: uppercase; padding: 5px 10px;
+           border: 1.5px solid currentColor }
+  .stamp.YES        { color: var(--yes);    background: var(--yes-soft) }
+  .stamp.NO         { color: var(--no);     background: var(--no-soft) }
+  .stamp.UNRESOLVED { color: var(--null);   background: var(--null-soft) }
+  .phase { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .13em;
+           text-transform: uppercase; color: var(--ink-3) }
+  .phase b { color: var(--ink); font-weight: 500 }
+
+  .question { font-family: "Instrument Serif", Georgia, serif; font-weight: 400;
+              font-size: clamp(23px, 3vw, 29px); line-height: 1.22; letter-spacing: -.01em;
+              margin: 0 0 20px; max-width: 30ch }
+
+  .entry { display: grid; grid-template-columns: 132px 1fr; gap: 22px; padding: 11px 0;
+           border-top: 1px solid var(--rule) }
+  .entry dt { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .12em;
+              text-transform: uppercase; color: var(--ink-3); padding-top: 4px }
+  .entry dd { margin: 0; font-size: 16px; line-height: 1.58; color: var(--ink-2) }
+  .entry dd a { word-break: break-all }
+  @media (max-width: 620px) { .entry { grid-template-columns: 1fr; gap: 5px } }
+
+  blockquote { margin: 0; padding-left: 18px; border-left: 2px solid var(--seal);
+               font-style: italic; font-size: 17.5px; line-height: 1.5; color: var(--ink) }
+
+  /* the annotation that stops a correct null result reading as breakage */
+  .note { margin-top: 20px; border: 1px solid var(--rule-2); background: var(--leaf-2); padding: 17px 19px }
+  .note .lbl { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em;
+               text-transform: uppercase; color: var(--appeal); display: block; margin-bottom: 8px }
+  .note p { margin: 0 0 9px; font-size: 15px; line-height: 1.56; color: var(--ink-2) }
+  .note p:last-child { margin-bottom: 0 }
+
+  .acts { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; align-items: center }
+  .closed { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .1em;
+            text-transform: uppercase; color: var(--ink-3) }
+
+  .empty { border: 1px dashed var(--rule-2); padding: 58px 26px; text-align: center; color: var(--ink-3) }
+  .empty p { margin: 16px 0 0; font-style: italic }
+
+  /* ---------------- filing form ---------------- */
+  .filing { border: 1px solid var(--ink); padding: 30px; background: var(--leaf) }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 18px }
+  @media (max-width: 700px) { .pair { grid-template-columns: 1fr } }
+  .field { margin-top: 18px }
+
+  /* ---------------- clerk's notice ---------------- */
+  .notice { position: fixed; right: 22px; bottom: 22px; z-index: 60; max-width: 400px;
+            background: var(--leaf); border: 1px solid var(--ink); padding: 17px 19px; display: none;
+            box-shadow: 6px 6px 0 var(--rule) }
+  .notice.show { display: block }
+  .notice .nh { display: flex; align-items: center; gap: 11px; margin-bottom: 8px;
+                font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .12em;
+                text-transform: uppercase; font-weight: 500 }
+  .notice .nb { font-size: 15px; line-height: 1.55; color: var(--ink-2); word-break: break-word }
+  .notice.err .nh { color: var(--no) }
+  .notice.ok  .nh { color: var(--yes) }
+  #notice-x { margin-left: auto; background: none; border: none; color: var(--ink-3);
+              font-size: 17px; padding: 0 2px; display: none; letter-spacing: 0 }
+  #notice-x:hover { background: none; color: var(--ink) }
+
+  footer { margin: 76px 0 60px; padding-top: 24px; border-top: 1px solid var(--ink);
+           display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+           font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .05em;
+           text-transform: uppercase; color: var(--ink-3) }
+
+  /* ---------------- the consensus spinner ---------------- */
+  .gl { --c: var(--seal); --g: var(--yes); --t: color-mix(in srgb, var(--seal) 22%, transparent);
+        --d: color-mix(in srgb, var(--seal) 42%, transparent); display: block }
+  .gl-track{fill:none;stroke:var(--t);stroke-width:2.5}
+  .gl-sweep{fill:none;stroke:var(--c);stroke-width:2.5;stroke-linecap:round;stroke-dasharray:24 79.67;stroke-dashoffset:24}
+  .gl-base{fill:var(--d)} .gl-lit{fill:var(--c);opacity:0} .gl-ok{fill:var(--g);opacity:0}
+  .gl-halo{fill:none;stroke:var(--g);stroke-width:1.2;opacity:0} .gl-core{fill:var(--c);opacity:0}
+  .gl-rot{transform-box:view-box;transform-origin:24px 24px;animation:gl-sweep 1.8s linear infinite}
+  .gl-lit,.gl-ok,.gl-base{transform-box:fill-box;transform-origin:center}
+  .gl-lit{animation:gl-vote 1.8s linear infinite} .gl-base{animation:gl-think 1.8s ease-in-out infinite}
+  .gl-ok{animation:gl-consensus 1.8s ease-out infinite}
+  .gl-halo{transform-box:view-box;transform-origin:24px 24px;animation:gl-halo 1.8s ease-out infinite}
+  .gl-core{transform-box:view-box;transform-origin:24px 24px;animation:gl-core 1.8s ease-out infinite}
+  .d1{animation-delay:.36s} .d2{animation-delay:.72s} .d3{animation-delay:1.08s} .d4{animation-delay:1.44s}
+  @keyframes gl-sweep{to{transform:rotate(360deg)}}
+  @keyframes gl-vote{0%,2%{opacity:0;transform:scale(.5)}7%{opacity:1;transform:scale(1.32)}13%{opacity:1;transform:scale(1)}88%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.5)}}
+  @keyframes gl-think{0%,100%{opacity:.55;transform:scale(.8)}50%{opacity:.85;transform:scale(.88)}}
+  @keyframes gl-consensus{0%,83%{opacity:0}88%,93%{opacity:1}100%{opacity:0}}
+  @keyframes gl-halo{0%,83%{opacity:0;transform:scale(.9)}89%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.14)}}
+  @keyframes gl-core{0%,83%{opacity:0;transform:scale(.2)}90%,95%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.3)}}
+  @media (prefers-reduced-motion: reduce){ .gl-rot,.gl-lit,.gl-ok,.gl-halo,.gl-core{animation:none} .gl-lit{opacity:1} }
+  .ledger { border:1px solid var(--rule-2); background:var(--leaf); padding:22px 24px; margin:0 0 34px; }
+  .lrow { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:22px 28px; }
+  .lfig { display:flex; flex-direction:column; gap:4px; }
+  .lfig b { font-family:'Instrument Serif',Georgia,serif; font-size:30px; font-weight:400; line-height:1;
+            color:var(--ink); font-variant-numeric:tabular-nums; }
+  .lfig b.paid { color:var(--yes); }
+  .lfig span { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:10.5px; letter-spacing:.09em;
+               text-transform:uppercase; color:var(--ink-3); }
+  .lnote { margin:18px 0 0; padding-top:16px; border-top:1px solid var(--rule);
+           font-size:14.5px; color:var(--ink-2); line-height:1.6; }
+  .lnote b { color:var(--ink); }
+</style>
+</head>
+<body>
+
+<template id="spin">
+  <svg class="gl" viewBox="0 0 48 48" role="img" aria-label="Working">
+    <circle class="gl-track" cx="24" cy="24" r="16.5"/><circle class="gl-halo" cx="24" cy="24" r="18.2"/>
+    <g><rect class="gl-base" x="21.70" y="5.20" width="4.6" height="4.6" rx="1.3"/>
+       <rect class="gl-base d1" x="37.39" y="16.60" width="4.6" height="4.6" rx="1.3"/>
+       <rect class="gl-base d2" x="31.40" y="35.05" width="4.6" height="4.6" rx="1.3"/>
+       <rect class="gl-base d3" x="12.00" y="35.05" width="4.6" height="4.6" rx="1.3"/>
+       <rect class="gl-base d4" x="6.01" y="16.60" width="4.6" height="4.6" rx="1.3"/></g>
+    <g transform="rotate(-90 24 24)"><g class="gl-rot"><circle class="gl-sweep" cx="24" cy="24" r="16.5"/></g></g>
+    <g><rect class="gl-lit" x="21.70" y="5.20" width="4.6" height="4.6" rx="1.3"/>
+       <rect class="gl-lit d1" x="37.39" y="16.60" width="4.6" height="4.6" rx="1.3"/>
+       <rect class="gl-lit d2" x="31.40" y="35.05" width="4.6" height="4.6" rx="1.3"/>
+       <rect class="gl-lit d3" x="12.00" y="35.05" width="4.6" height="4.6" rx="1.3"/>
+       <rect class="gl-lit d4" x="6.01" y="16.60" width="4.6" height="4.6" rx="1.3"/></g>
+    <g><rect class="gl-ok" x="21.70" y="5.20" width="4.6" height="4.6" rx="1.3"/>
+       <rect class="gl-ok" x="37.39" y="16.60" width="4.6" height="4.6" rx="1.3"/>
+       <rect class="gl-ok" x="31.40" y="35.05" width="4.6" height="4.6" rx="1.3"/>
+       <rect class="gl-ok" x="12.00" y="35.05" width="4.6" height="4.6" rx="1.3"/>
+       <rect class="gl-ok" x="6.01" y="16.60" width="4.6" height="4.6" rx="1.3"/></g>
+    <g transform="rotate(45 24 24)"><g class="gl-core">
+      <g transform="translate(18 17.91) scale(.12275)">
+        <polygon points="44.26 32.35 27.72 67.12 43.29 74.9 0 91.93 44.26 0 44.26 32.35"/>
+        <polygon points="53.5 32.35 70.04 67.12 54.47 74.9 97.76 91.93 53.5 0 53.5 32.35"/>
+        <polygon points="48.64 43.78 58.33 62.94 48.64 67.69 39.47 62.92 48.64 43.78"/>
+      </g></g></g>
+  </svg>
+</template>
+
+<!-- The mark: three possible findings, one of them struck. -->
+<template id="mark">
+  <svg viewBox="0 0 22 22" width="22" height="22" aria-hidden="true">
+    <rect x="1" y="3"  width="12" height="2.4" fill="currentColor" opacity=".28"/>
+    <rect x="1" y="9.8" width="20" height="2.4" fill="var(--seal)"/>
+    <rect x="1" y="16.6" width="12" height="2.4" fill="currentColor" opacity=".28"/>
+  </svg>
+</template>
+
+<header class="masthead">
+  <div class="wrap">
+    <span class="wordmark"><span data-mark></span> Settled</span>
+    <span class="grow"></span>
+    <span class="acct"><span class="lamp" id="lamp"></span><span id="who">No wallet</span></span>
+    <button class="seal" id="connect">Connect</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="opening">
+    <div class="filed">Adjudication oracle &middot; GenLayer Testnet Bradbury &middot; Chain 4221</div>
+    <h1>Prediction markets don't fail at pricing. They fail at <em>resolution</em>.</h1>
+    <p class="standfirst">When a market's wording finally meets reality, someone has to read a source and rule on
+      what it means — a judgement no deterministic chain can make. That work is handed today to committees and
+      token-weighted votes. <strong>Settled hands it to the network itself:</strong> every validator fetches the
+      source, reads it, and rules independently. Nothing is recorded unless they agree.</p>
+
+    <p class="standfirst">A verdict nobody spends is never really tested, because being wrong costs nothing. So
+      these findings are bound to a second contract that holds real stakes and pays them out on the result.
+      <strong>You can watch a wallet balance change because validators read a web page.</strong> That is the
+      claim, and everything below is the apparatus for making it survive contact with someone trying to break it.</p>
+
+    <div class="grounds">
+      <div class="ground">
+        <h3>The verdict moves money</h3>
+        <p>Findings are spendable only at <em>FINAL</em>, and the payout contract reads them only at
+          chain-finalized state — so a result waits both for the arguing to stop and for the chain to stop.</p>
+      </div>
+      <div class="ground">
+        <h3>The source is attested first</h3>
+        <p>Before betting opens, validators fetch the source and must agree on its hash exactly. That records
+          what it said beforehand, and it rejects sources they cannot read identically — while the pool is
+          still empty rather than after the money is in.</p>
+      </div>
+      <div class="ground">
+        <h3>Deadlock is a permitted outcome</h3>
+        <p>If the validators cannot agree, the transaction is undetermined, nothing is written, and the question
+          stays open. A blank beats a wrong entry in a permanent record.</p>
+      </div>
+    </div>
+
+    <div class="docket">
+      <div class="f">
+        <label for="addr">Oracle &mdash; Settled</label>
+        <input id="addr" placeholder="0x&hellip;" spellcheck="false" value="">
+      </div>
+      <div class="f">
+        <label for="paddr">Stakes &mdash; Payout</label>
+        <input id="paddr" placeholder="0x&hellip;" spellcheck="false" value="">
+      </div>
+      <button id="load">Open the record</button>
+    </div>
+  </section>
+
+  <div class="ledger" id="ledger" hidden>
+    <div class="lrow" id="lrow"></div>
+    <p class="lnote" id="lnote"></p>
+  </div>
+
+  <h2><span class="n">I.</span> The record <span class="n" id="count"></span></h2>
+  <p class="seclede">Each entry is a question put to the network, the criteria it was judged against, and what
+    the validators returned. Entries still open are not unfinished work; the annotations say which are which.</p>
+
+  <div class="records" id="records">
+    <div class="empty">
+      <div style="display:flex;justify-content:center"><span data-spin="42"></span></div>
+      <p>Opening the record&hellip;</p>
+    </div>
+  </div>
+
+  <h2><span class="n">II.</span> Put a question</h2>
+  <p class="seclede">Name what is being asked, exactly what would settle it either way, and where it should be
+    read from. Ambiguity written here is ambiguity the network has to arbitrate later.</p>
+
+  <div class="filing">
+    <div class="pair">
+      <div>
+        <label for="f-id">Reference</label>
+        <input id="f-id" placeholder="btc-100k-2026" spellcheck="false">
+      </div>
+      <div>
+        <label for="f-url">Source</label>
+        <input id="f-url" placeholder="https://&hellip;" spellcheck="false">
+      </div>
+    </div>
+    <div class="field">
+      <label for="f-q">Question</label>
+      <input id="f-q" placeholder="Did the named event occur, as described?">
+    </div>
+    <div class="field">
+      <label for="f-c">Criteria for a finding</label>
+      <textarea id="f-c" placeholder="State plainly what in the source makes this YES, and what makes it NO."></textarea>
+    </div>
+    <div class="field">
+      <label for="f-embargo">Embargo &mdash; seconds before this may be resolved</label>
+      <input id="f-embargo" value="1200" spellcheck="false">
+      <p class="hint">Fixed now, before anyone knows anything. Nobody may resolve the question before it
+        elapses, and betting closes at the same instant &mdash; so no one can read the answer and then rush the
+        verdict through before others can react. Twenty minutes suits a demonstration; a real market would use
+        days.</p>
+    </div>
+    <div class="acts">
+      <button class="seal" id="create" disabled>File it</button>
+      <button class="quiet" id="demo">Use a worked example</button>
+    </div>
+  </div>
+
+  <footer>
+    <span>Settled &middot; an adjudication oracle on GenLayer</span>
+    <span id="onchain"></span>
+  </footer>
+</div>
+
+<div class="notice" id="notice">
+  <div class="nh"><span id="notice-spin"></span><span id="notice-title">Working</span>
+    <button id="notice-x" aria-label="Dismiss">&times;</button></div>
+  <div class="nb" id="notice-body"></div>
+</div>
+
+<script type="module">
+import { createClient } from './genlayer-js.browser.js';
+import { testnetBradbury } from './genlayer-js.browser.js';
+import { TransactionStatus } from './genlayer-js.browser.js';
+
+const EXPLORER = 'https://explorer-bradbury.genlayer.com';
+const CHAIN_ID_HEX = '0x107d'; // 4221
+
+/* Annotations on specific entries. A correct null result looks identical to a
+   broken one unless something says otherwise, so the two real deadlocks this
+   contract produced are documented on the entries themselves rather than being
+   left to look like unfinished work. */
+const CASE_NOTES = {
+  'gl-bradbury-live': {
+    label: 'Why this one is still open',
+    body: [
+      `A resolution was run and the validators could not agree, so nothing was written. The transaction
+       rotated through four leaders and was decided <b>undetermined</b>.`,
+      `The cause was the source, not the contract. That page is assembled in the browser, so five validators
+       fetching it independently received different amounts of it — and a validator handed half a page
+       honestly answers UNRESOLVED while the leader says YES. For an oracle, a source that returns identical
+       bytes to every reader matters as much as a source that is authoritative.`,
+    ],
+    link: [`${EXPLORER}/tx/0x14f9624d245fb5c776749265181b14e5221f3c1445dbabdf97c4f5c592fd011a`,
+           'Read the validator votes'],
+  },
+  'polymarket-definition': {
+    label: 'On the appeal',
+    body: [
+      `This finding was disputed, and the objection is recorded below. Adjudication was then run and also
+       came back <b>undetermined</b>, which is why the entry rests here rather than closed.`,
+      `Resolution asks validators to read a fact. Adjudication asks them to weigh an argument against that
+       fact, and that is genuinely contestable — so they contested it. Appeals being harder to settle than
+       original findings is an honest property; it argues for appeals that carry a bond and re-open the
+       narrow point rather than the whole judgement.`,
+    ],
+  },
+};
+
+const PHASE = {
+  OPEN:     'Awaiting a finding',
+  RESOLVED: 'Finding entered &middot; open to dispute',
+  DISPUTED: 'Under appeal',
+  FINAL:    'Closed',
+};
+
+// ---------- templates ----------
+const spinTpl = document.getElementById('spin');
+const markTpl = document.getElementById('mark');
+function stamp(root = document) {
+  root.querySelectorAll('[data-spin]').forEach(s => {
+    if (s.dataset.done) return;
+    const el = spinTpl.content.firstElementChild.cloneNode(true);
+    const n = s.dataset.spin || 24;
+    el.setAttribute('width', n); el.setAttribute('height', n);
+    s.appendChild(el); s.dataset.done = '1';
+  });
+  root.querySelectorAll('[data-mark]').forEach(s => {
+    if (s.dataset.done) return;
+    s.appendChild(markTpl.content.firstElementChild.cloneNode(true));
+    s.dataset.done = '1';
+  });
+}
+stamp();
+
+// ---------- clerk's notice ----------
+const notice = document.getElementById('notice');
+const nTitle = document.getElementById('notice-title');
+const nBody  = document.getElementById('notice-body');
+const nSpin  = document.getElementById('notice-spin');
+let nTimer;
+function say(title, body, kind = '') {
+  clearTimeout(nTimer);
+  notice.className = 'notice show ' + kind;
+  nTitle.textContent = title;
+  nBody.innerHTML = body || '';
+  nSpin.innerHTML = ''; nSpin.removeAttribute('data-done');
+  if (!kind) { nSpin.setAttribute('data-spin', '15'); stamp(notice); }
+  document.getElementById('notice-x').style.display = kind === 'err' ? 'block' : 'none';
+  if (kind === 'ok') nTimer = setTimeout(() => notice.classList.remove('show'), 9000);
+}
+function hush() { clearTimeout(nTimer); notice.classList.remove('show'); }
+document.getElementById('notice-x').addEventListener('click', hush);
+
+// ---------- state ----------
+let account = null;
+const readClient = createClient({ chain: testnetBradbury });
+let writeClient = null;
+const addrInput  = document.getElementById('addr');
+const paddrInput = document.getElementById('paddr');
+const contractAddress = () => addrInput.value.trim();
+const payoutAddress   = () => paddrInput.value.trim();
+
+// Pools, keyed by market id, refreshed alongside the record.
+let POOLS = {};
+
+const GEN = 10n ** 18n;
+function gen(wei) {
+  // Whole GEN with four decimals, without floating point anywhere near a balance.
+  try {
+    const v = BigInt(wei || 0);
+    const whole = v / GEN, frac = (v % GEN) * 10000n / GEN;
+    return `${whole}.${String(frac).padStart(4, '0')}`;
+  } catch { return '0.0000'; }
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ---------- wallet ----------
+// client.connect() is deliberately avoided: it requests the GenLayer MetaMask
+// Snap, which fails on wallets without Snap support and is not needed here.
+async function connect() {
+  if (!window.ethereum) { say('No wallet', 'Install MetaMask, then reload this page.', 'err'); return; }
+  try {
+    say('Connecting', 'Approve the request in your wallet.');
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    account = accounts[0];
+    try {
+      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_HEX }] });
+    } catch (e) {
+      if (e.code === 4902) {
+        await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{
+          chainId: CHAIN_ID_HEX, chainName: 'GenLayer Testnet Chain',
+          rpcUrls: ['https://zksync-os-testnet-genlayer.zksync.dev'],
+          nativeCurrency: { name: 'GEN Token', symbol: 'GEN', decimals: 18 },
+          blockExplorerUrls: [EXPLORER + '/'],
+        }] });
+      } else throw e;
+    }
+    writeClient = createClient({ chain: testnetBradbury, account, provider: window.ethereum });
+    document.getElementById('lamp').classList.add('on');
+    document.getElementById('who').textContent = account.slice(0, 6) + '…' + account.slice(-4);
+    document.getElementById('connect').textContent = 'Connected';
+    document.getElementById('create').disabled = false;
+    say('Connected', 'Your wallet is on Bradbury.', 'ok');
+  } catch (e) { say('Could not connect', esc(e.message || String(e)), 'err'); }
+}
+document.getElementById('connect').addEventListener('click', connect);
+
+// ---------- reads ----------
+// Reads one entry's phase straight from the chain. Used to confirm a write
+// actually landed rather than believing the transaction receipt.
+async function marketStatus(id) {
+  try {
+    const m = await readClient.readContract({
+      address: contractAddress(), functionName: 'get_market', args: [id],
+    });
+    return String(m?.status || '');
+  } catch (e) { return null; }
+}
+
+async function load() {
+  const addr = contractAddress();
+  if (!addr) { say('No address', 'Give the contract address first.', 'err'); return; }
+  try {
+    say('Reading', 'Fetching the record from the chain.');
+    const data = await readClient.readContract({ address: addr, functionName: 'get_markets', args: [] });
+
+    // Pools are optional: the oracle stands alone, and a reviewer who has only
+    // the oracle address should still see the whole record.
+    POOLS = {};
+    const paddr = payoutAddress();
+    if (paddr) {
+      try {
+        POOLS = await readClient.readContract({ address: paddr, functionName: 'get_pools', args: [] }) || {};
+      } catch (e) { POOLS = {}; }
+    }
+    render(data || {});
+    hush();
+    const paddr2 = payoutAddress();
+    document.getElementById('onchain').innerHTML =
+      `<a href="${EXPLORER}/address/${esc(addr)}" target="_blank" rel="noopener">Oracle on-chain &rarr;</a>` +
+      (paddr2 ? ` &nbsp;·&nbsp; <a href="${EXPLORER}/address/${esc(paddr2)}" target="_blank" rel="noopener">Stakes on-chain &rarr;</a>` : '');
+  } catch (e) { say('Could not read', esc(e.message || String(e)), 'err'); }
+}
+document.getElementById('load').addEventListener('click', load);
+
+function ledger(markets) {
+  const rows = Object.entries(markets);
+  const pools = Object.entries(POOLS);
+
+  const ruled  = rows.filter(([, m]) => m.status !== 'OPEN').length;
+  const closed = rows.filter(([, m]) => m.status === 'FINAL').length;
+  const attested = rows.filter(([, m]) => m.baseline_observed).length;
+
+  let staked = 0n, paid = 0n, settled = 0;
+  for (const [, p] of pools) {
+    const pot = BigInt(p.total_yes || 0) + BigInt(p.total_no || 0);
+    staked += pot;
+    if (p.settled) { settled++; paid += pot; }
+  }
+
+  const box = document.getElementById('ledger');
+  if (!rows.length) { box.hidden = true; return; }
+  box.hidden = false;
+
+  const fig = (n, label, cls = '') => `<div class="lfig"><b class="${cls}">${n}</b><span>${label}</span></div>`;
+  document.getElementById('lrow').innerHTML =
+    fig(rows.length, 'questions filed') +
+    fig(attested, 'sources attested') +
+    fig(ruled, 'findings entered') +
+    fig(closed, 'closed for spending') +
+    (pools.length ? fig(gen(staked) + ' GEN', 'staked on outcomes') : '') +
+    (settled ? fig(gen(paid) + ' GEN', 'released to backers', 'paid') : '');
+
+  document.getElementById('lnote').innerHTML = settled
+    ? `<b>${gen(paid)} GEN has changed hands because validators read a web page and agreed on what it said.</b>
+       Every figure here is read live from Bradbury when this page loads &mdash; nothing is hardcoded. Follow any
+       entry below to its transactions and check it.`
+    : `Every figure here is read live from Bradbury when this page loads &mdash; nothing is hardcoded.
+       Findings become spendable only once closed, and only then can a pool pay out.`;
+}
+
+function render(markets) {
+  ledger(markets);
+  const box = document.getElementById('records');
+  const rows = Object.entries(markets);
+  document.getElementById('count').textContent = rows.length ? `${rows.length} entries` : '';
+
+  if (!rows.length) {
+    box.innerHTML = `<div class="empty"><p>Nothing on the record yet. Put the first question below.</p></div>`;
+    return;
+  }
+
+  box.innerHTML = rows.map(([id, m]) => {
+    const phase = String(m.status || 'OPEN');
+    const finding = String(m.outcome || 'UNRESOLVED');
+    const ruled = phase !== 'OPEN';
+    const note = CASE_NOTES[id];
+
+    const pool = POOLS[id];
+    const havePayout = !!payoutAddress();
+
+    // The action offered is the ONE that is legal right now. A row of buttons
+    // that mostly error is a worse guide than a single button that works.
+    let act = '';
+    if (phase === 'OPEN' && !m.baseline_observed) {
+      act = `<button class="seal" data-act="snapshot" data-id="${esc(id)}">Attest the source</button>`;
+    } else if (phase === 'OPEN' && !pool && havePayout) {
+      act = `<button class="seal" data-act="open_pool" data-id="${esc(id)}">Open a pool on this</button>`;
+    } else if (phase === 'OPEN' && pool && !pool.settled) {
+      act = `<button data-act="back-yes" data-id="${esc(id)}">Back YES</button>
+             <button data-act="back-no" data-id="${esc(id)}">Back NO</button>
+             <button class="seal" data-act="resolve" data-id="${esc(id)}">Put it to the validators</button>`;
+    } else if (phase === 'OPEN') {
+      act = `<button class="seal" data-act="resolve" data-id="${esc(id)}">Put it to the validators</button>`;
+    } else if (phase === 'RESOLVED') {
+      act = `<button class="seal" data-act="finalize" data-id="${esc(id)}">Close the dispute window</button>
+             <button data-act="dispute" data-id="${esc(id)}">Dispute this finding</button>`;
+    } else if (phase === 'DISPUTED') {
+      act = `<button class="seal" data-act="adjudicate" data-id="${esc(id)}">Adjudicate the appeal</button>`;
+    } else if (phase === 'FINAL' && pool && !pool.settled) {
+      act = `<button class="seal" data-act="settle" data-id="${esc(id)}">Settle the pool</button>`;
+    } else if (phase === 'FINAL' && pool && pool.settled) {
+      act = `<button class="seal" data-act="claim" data-id="${esc(id)}">Claim what you are owed</button>`;
+    } else {
+      act = `<span class="closed">Closed &middot; no further appeal</span>`;
+    }
+
+    const prov = m.provenance === 'PINNED'
+      ? `Content-addressed. The digest committed when this was filed must match, or no finding is written.`
+      : `Changeable by whoever publishes it. Attested below before betting opened; that is not proof of what it says now.`;
+
+    const evidence = `<div class="note">
+      <span class="lbl">The source, and what is actually known about it</span>
+      <dl style="margin:0">
+        <div class="entry"><dt>Provenance</dt><dd>${esc(m.provenance || '—')} &mdash; ${prov}</dd></div>
+        ${m.baseline_observed ? `<div class="entry"><dt>Attested before</dt>
+          <dd><code>${esc(String(m.baseline_digest).slice(0, 24))}…</code><br>
+          Every validator fetched it and agreed on this hash exactly, before betting opened.</dd></div>` : ''}
+        ${m.observed_digest ? `<div class="entry"><dt>Read at ruling</dt>
+          <dd><code>${esc(String(m.observed_digest).slice(0, 24))}…</code>${
+            m.baseline_observed ? (m.source_changed
+            ? ` &mdash; <b>the source moved</b> between the two readings. That is what a live source reporting an event looks like.`
+            : ` &mdash; unchanged from its attested state.`) : ''}</dd></div>` : ''}
+        ${Number(m.resolve_attempts || 0) > 0 ? `<div class="entry"><dt>Failed attempts</dt>
+          <dd>${esc(m.resolve_attempts)} &mdash; counted, so a source going dark is distinguishable from one nobody tried.</dd></div>` : ''}
+      </dl></div>`;
+
+    const stakes = pool ? `<div class="note">
+      <span class="lbl">The stakes</span>
+      <dl style="margin:0">
+        <div class="entry"><dt>On YES</dt><dd>${gen(pool.total_yes)} GEN</dd></div>
+        <div class="entry"><dt>On NO</dt><dd>${gen(pool.total_no)} GEN</dd></div>
+        ${pool.settled
+          ? `<div class="entry"><dt>Settled as</dt><dd><b>${esc(pool.result)}</b>${
+              pool.by_appeal_denied ? ' &mdash; an appeal was heard and did not carry, so the original finding stands.' : ''}${
+              pool.by_timeout ? ' &mdash; reached by the expiry clock rather than by agreement.' : ''}</dd></div>`
+          : `<div class="entry"><dt>Book</dt><dd>Open &mdash; closes when the embargo lifts.</dd></div>`}
+      </dl></div>`
+      : '';
+
+    return `<article class="record">
+      <div class="rhead">
+        ${ruled ? `<span class="stamp ${esc(finding)}">${esc(finding)}</span>` : ''}
+        <span class="phase">${PHASE[phase] || esc(phase)}</span>
+        <span class="no-ref">${esc(id)}</span>
+      </div>
+      <h3 class="question">${esc(m.question)}</h3>
+      <dl style="margin:0">
+        <div class="entry"><dt>Criteria</dt><dd>${esc(m.criteria)}</dd></div>
+        ${m.rationale ? `<div class="entry"><dt>Reasoning</dt><dd>${esc(m.rationale)}</dd></div>` : ''}
+        ${m.evidence ? `<div class="entry"><dt>Evidence</dt><dd><blockquote>${esc(m.evidence)}</blockquote></dd></div>` : ''}
+        ${m.dispute_reason ? `<div class="entry"><dt>Objection</dt><dd>${esc(m.dispute_reason)}</dd></div>` : ''}
+        <div class="entry"><dt>Source</dt><dd><a href="${esc(m.source_url)}" target="_blank" rel="noopener">${esc(m.source_url)}</a></dd></div>
+      </dl>
+      ${note ? `<div class="note">
+          <span class="lbl">${esc(note.label)}</span>
+          ${note.body.map(p => `<p>${p}</p>`).join('')}
+          ${note.link ? `<p><a href="${note.link[0]}" target="_blank" rel="noopener">${esc(note.link[1])} &rarr;</a></p>` : ''}
+        </div>` : ''}
+      ${evidence}
+      ${stakes}
+      <div class="acts">${act}</div>
+    </article>`;
+  }).join('');
+}
+
+// ---------- writes ----------
+async function send(fn, args, note, verify, opts = {}) {
+  if (!writeClient) { say('Not connected', 'Connect your wallet first.', 'err'); return false; }
+  const addr = opts.to || contractAddress();
+  if (!addr) { say('No address', 'Give the contract address first.', 'err'); return false; }
+  const value = opts.value ? BigInt(opts.value) : BigInt(0);
+
+  let hash;
+  try {
+    say('Confirm in your wallet', note);
+    hash = await writeClient.writeContract({ address: addr, functionName: fn, args, value });
+
+    say('Sent', (opts.slow === false
+        ? `Waiting for the chain. Usually quick.`
+        : `The validators are each reading the source and forming their own view. This is slow by nature
+           &mdash; minutes, not seconds. Leave it be.`) +
+      `<br><br><a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Follow it on-chain &rarr;</a>`);
+
+    const receipt = await readClient.waitForTransactionReceipt({
+      hash, status: TransactionStatus.ACCEPTED, retries: 450, interval: 4000,
+    });
+
+    const result = receipt?.txExecutionResultName || receipt?.status;
+    if (String(result).includes('ERROR')) {
+      say('Refused by the contract', `The transaction was accepted but execution failed (${esc(result)}).
+        <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Details &rarr;</a>`, 'err');
+      return false;
+    }
+
+    // A receipt is not proof the write landed. An undetermined transaction comes
+    // back looking successful while changing nothing, so read the state back.
+    if (verify) {
+      const moved = await verify();
+      if (!moved) {
+        say('Undetermined &mdash; nothing written',
+          `The validators did not all reach the same finding, so the contract declined to record one.
+           The entry is unchanged and can be put again.<br><br>This is the safety property, not a fault:
+           a blank is better than a wrong entry in a permanent record.<br><br>
+           <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Read the votes &rarr;</a>`, 'err');
+        await load();
+        return false;
+      }
+    }
+
+    say('Entered on the record', `<a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">View the transaction &rarr;</a>`, 'ok');
+    await load();
+    return true;
+  } catch (e) {
+    const msg = String(e?.message || e);
+    if (msg.includes('Timed out') || msg.includes('timed out')) {
+      // Still in flight. Calling this a failure invites a second, needless send.
+      say('Still running &mdash; not failed',
+        `The validators are taking longer than this page was willing to wait. Nothing is lost.<br><br>
+         <b>Do not send it again.</b> Give it a few minutes, then press <b>Open the record</b>.<br><br>
+         <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Watch it on-chain &rarr;</a>`, 'err');
+      return false;
+    }
+    say('Failed', esc(msg), 'err');
+    return false;
+  }
+}
+
+document.getElementById('records').addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('[data-act]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const act = btn.dataset.act;
+  const P = payoutAddress();
+
+  // Reads used to confirm a write actually landed. A receipt is not proof: an
+  // undetermined transaction returns one that looks perfectly successful while
+  // changing nothing at all.
+  const status  = async () => await marketStatus(id);
+  const attested = async () => {
+    try {
+      const b = await readClient.readContract({ address: contractAddress(), functionName: 'baseline', args: [id] });
+      return !!b?.observed;
+    } catch { return false; }
+  };
+  const pooled = async () => {
+    try {
+      await readClient.readContract({ address: P, functionName: 'get_pool', args: [id] });
+      return true;
+    } catch { return false; }
+  };
+  const poolSettled = async () => {
+    try {
+      const p = await readClient.readContract({ address: P, functionName: 'get_pool', args: [id] });
+      return !!p?.settled;
+    } catch { return false; }
+  };
+
+  if (act === 'snapshot') {
+    await send('snapshot', [id],
+      `Every validator will fetch this source and they must agree on its hash exactly.
+       This is what records what it said beforehand &mdash; and it is also the test of whether the
+       source can be read identically by independent machines at all.`,
+      attested);
+    return;
+  }
+
+  if (act === 'resolve') {
+    const before = await status();
+    await send('resolve', [id], 'Each validator will read the source and rule independently.',
+      async () => (await status()) !== before);
+    return;
+  }
+
+  if (act === 'finalize') {
+    await send('finalize', [id],
+      `Closing the window in which this finding could be challenged. Until it elapses, nothing downstream
+       is allowed to spend the verdict.`,
+      async () => (await status()) === 'FINAL', { slow: false });
+    return;
+  }
+
+  if (act === 'dispute') {
+    const reason = prompt('State the objection. It goes on-chain, and the validators will read it.');
+    if (reason && reason.trim()) {
+      await send('dispute', [id, reason.trim()], 'Recording the objection on-chain.',
+        async () => (await status()) === 'DISPUTED', { slow: false });
+    }
+    return;
+  }
+
+  if (act === 'adjudicate') {
+    const before = await status();
+    await send('adjudicate', [id],
+      'The objection goes in front of the validators alongside the source. This result is final.',
+      async () => (await status()) !== before);
+    return;
+  }
+
+  if (act === 'open_pool') {
+    if (!P) { say('No payout contract', 'Enter the Payout address above, then open the record again.', 'err'); return; }
+    await send('open_pool', [id],
+      `Binding a pool of real stakes to this question. The contract checks five things about the oracle
+       before it will accept anyone's money.`,
+      pooled, { to: P, slow: false });
+    return;
+  }
+
+  if (act === 'back-yes' || act === 'back-no') {
+    if (!P) { say('No payout contract', 'Enter the Payout address above, then open the record again.', 'err'); return; }
+    const side = act === 'back-yes' ? 'YES' : 'NO';
+    const amt = prompt(`How much GEN on ${side}?`, '0.003');
+    if (!amt) return;
+    let wei;
+    try {
+      const [w, f = ''] = String(amt).trim().split('.');
+      wei = BigInt(w || 0) * GEN + BigInt((f + '000000000000000000').slice(0, 18));
+    } catch { say('Not a number', 'Enter an amount like 0.003', 'err'); return; }
+    if (wei <= 0n) { say('Nothing staked', 'A stake has to carry value.', 'err'); return; }
+    await send('back', [id, side], `Staking ${amt} GEN on ${side}. Your wallet will ask you to send the value.`,
+      null, { to: P, value: wei, slow: false });
+    return;
+  }
+
+  if (act === 'settle') {
+    if (!P) return;
+    await send('settle', [id],
+      `Reading the final verdict and fixing the result. The payout contract grants itself no discretion here
+       &mdash; it records what the oracle said.`,
+      poolSettled, { to: P, slow: false });
+    return;
+  }
+
+  if (act === 'claim') {
+    if (!P) return;
+    await send('claim', [id],
+      `Withdrawing whatever this wallet is owed. If you backed the losing side there is nothing to collect,
+       and the contract will say so.`,
+      null, { to: P, slow: false });
+    return;
+  }
+});
+
+document.getElementById('create').addEventListener('click', async () => {
+  const id = document.getElementById('f-id').value.trim();
+  const q  = document.getElementById('f-q').value.trim();
+  const c  = document.getElementById('f-c').value.trim();
+  const u  = document.getElementById('f-url').value.trim();
+  if (!id || !q || !c || !u) { say('Incomplete', 'All four fields are needed.', 'err'); return; }
+  const emb = parseInt(document.getElementById('f-embargo').value.trim() || '1200', 10);
+  if (!(emb > 0)) { say('Embargo required', 'A stakeable market needs an embargo. 1200 seconds is a sensible demo value.', 'err'); return; }
+  const ok = await send('create_market', [id, q, c, u, '', emb],
+    'Putting the question on the record. The empty field is the content commitment — a changeable source cannot carry one, so it is taken separately in the next step.',
+    null, { slow: false });
+  if (ok) ['f-id', 'f-q', 'f-c', 'f-url'].forEach(k => document.getElementById(k).value = '');
+});
+
+document.getElementById('demo').addEventListener('click', () => {
+  document.getElementById('f-id').value = 'payout-demo-' + Math.floor(Date.now() / 1000 % 100000);
+  document.getElementById('f-q').value =
+    'Has the Settled v2 payout contract been confirmed live on Testnet Bradbury?';
+  document.getElementById('f-c').value =
+    'YES if the source states status confirmed. NO if the source states status cancelled. ' +
+    'UNRESOLVED if the source says anything else, including pending.';
+  document.getElementById('f-url').value =
+    'https://raw.githubusercontent.com/PranjalBoraCrypto/settled/main/feed.json';
+  document.getElementById('f-embargo').value = '1200';
+  say('Example loaded', `A small JSON file in this project's own repository, which currently reads
+    <b>pending</b>. File it, attest it, open a pool, take both sides &mdash; then edit that file to say
+    <b>confirmed</b> and put it to the validators. The point of using a source you control is that the
+    event can be made to happen on cue instead of waiting for the world.`, 'ok');
+});
+
+// Open the record on arrival — a reviewer should not have to press anything.
+load();
+</script>
+</body>
+</html>
