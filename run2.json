@@ -1,0 +1,7 @@
+{
+  "feed": "settled-demo",
+  "event": "settled-run-two",
+  "status": "pending",
+  "note": "The second demonstration run has not yet been confirmed.",
+  "updated": "before"
+}
