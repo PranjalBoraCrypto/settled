@@ -149,8 +149,17 @@ backed NO against a YES finding, and offers nothing to claim.
 
 ## The rules
 
-Seventy-one refusals are written into the two contracts, grouped and explained on
-the live site under **[The rules](https://pranjalboracrypto.github.io/settled/#rules)**.
+The two contracts refuse in **67 distinct sentences**, raised at 92 places in the
+source:
+
+```bash
+grep -c 'raise gl.vm.UserError' settled.py payout.py    # 57 + 35 = 92
+```
+
+**All 67 are catalogued** — grouped, searchable, and each explained — on the live
+site under **[The rules](https://pranjalboracrypto.github.io/settled/#rules)**.
+Not a selection of the interesting ones: the whole set, because an incomplete
+list invites you to assume the omissions do not exist.
 
 Most systems hide these. They are shown because a rule nobody can see is
 indistinguishable from a bug — and because several were added only after an

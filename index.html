@@ -379,6 +379,23 @@
     * { transition-duration:.01ms !important; }
   }
   /* --- the rulebook ------------------------------------------------- */
+  /* Sixty-seven refusals in one column is a scroll, not a reference. They are
+     drawered by group, with a search that crosses all four — because a reader
+     holding an error message does not know which drawer it lives in. */
+  .rulebar { display:flex; flex-wrap:wrap; gap:10px 20px; align-items:center;
+             border-bottom:1px solid var(--rule-2); margin:0 0 22px; }
+  .rtabs { margin-left:0; flex-wrap:wrap; margin-bottom:-1px; }
+  .rtabs button { font-size:11px; padding:9px 12px; }
+  .rfind { margin-left:auto; display:flex; align-items:center; gap:8px; padding-bottom:6px; }
+  .rfind input { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:12px;
+                 width:min(300px,52vw); padding:7px 10px; color:var(--ink);
+                 background:var(--leaf); border:1px solid var(--rule-2); border-radius:3px;
+                 transition:border-color .18s ease; }
+  .rfind input:focus { outline:none; border-color:var(--seal); }
+  .rfind input::placeholder { color:var(--ink-3); }
+  .rcount { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px;
+            letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3);
+            margin:0 0 18px; }
   .rules { display:grid; gap:34px; margin:0 0 40px; }
   .rgroup h3 { font-family:'Instrument Serif',Georgia,serif; font-size:23px; font-weight:400;
                margin:0 0 4px; display:flex; align-items:baseline; gap:10px; }
@@ -533,7 +550,7 @@
         <h3>Deadlock is a permitted outcome</h3>
         <p>If the validators cannot agree, the transaction is undetermined, nothing is written, and the
           question stays open. A blank beats a wrong entry in a permanent record.</p>
-        <p class="gproof">Seventy-one refusals are written in, and explained.
+        <p class="gproof">Sixty-seven refusals are written in, and every one is explained.
           <a href="#rules">Read them &rarr;</a></p>
       </div>
     </div>
@@ -588,11 +605,21 @@
   </div>
 
   <h2 id="rules"><span class="n">II.</span> The rules <span class="n">what these contracts refuse, and why</span></h2>
-  <p class="seclede">Seventy-one refusals are written into the two contracts. Most systems hide these;
-    they are shown here because a rule nobody can see is indistinguishable from a bug &mdash; and
-    because every one of them is here in response to something that could otherwise go wrong. Several
-    were added after an attempt to break the contract succeeded.</p>
+  <p class="seclede">The two contracts refuse in <b>sixty-seven distinct sentences</b>, raised at
+    ninety-two places in the source. <b>All sixty-seven are below</b> &mdash; not the interesting
+    ones, the whole set, because an incomplete list invites you to assume the omissions do not exist.
+    Most systems hide these entirely; a rule nobody can see is indistinguishable from a bug, and
+    several of these were written only after an attempt to break the contract succeeded. Count them
+    yourself: <code>grep -c 'raise gl.vm.UserError' settled.py payout.py</code>.</p>
 
+  <div class="rulebar">
+    <div class="tabs rtabs" id="rule-tabs" role="tablist"></div>
+    <label class="rfind">
+      <input id="rule-find" type="search" autocomplete="off" spellcheck="false"
+             placeholder="Search all 67 — paste an error" aria-label="Search every refusal">
+    </label>
+  </div>
+  <p class="rcount" id="rule-count"></p>
   <div class="rules" id="rulebook"></div>
 
   <h2><span class="n">III.</span> Put a question</h2>
@@ -834,6 +861,44 @@ const RULES = {
   'no pool for this market':   { group: 'lifecycle', plain: 'No book has been opened on it.', why: '', fix: '' },
   'pool is already settled':   { group: 'lifecycle', plain: 'The result is already fixed.', why: '', fix: '' },
   'a pool is already open for this market': { group: 'lifecycle', plain: 'One book per question.', why: '', fix: '' },
+
+  // --- the remaining thirty, so this catalogue is the whole set rather than the
+  // interesting part of it. An incomplete list of rules is its own kind of bug:
+  // it invites the reader to assume the omissions do not exist.
+  'dispute window is below the permitted floor': { group: 'timing', plain: 'Under 60 seconds.', why: 'A dispute window nobody can act inside is not a dispute window. Constructor arguments are bounded at <em>both</em> ends, because either end is a way to make money unreachable or unchallengeable.', fix: 'Deploy with 60 seconds or more, or leave the argument blank for the 300-second default.' },
+  'dispute window is above the permitted maximum': { group: 'timing', plain: 'Over 30 days.', why: 'An unbounded window locks every stake behind it forever. This was one of three separate fund-lock paths found in review.', fix: 'Use 2,592,000 seconds or less.' },
+  'expiry delay is below the permitted floor': { group: 'timing', plain: 'Under an hour.', why: 'Expiry is the escape hatch for a market that jams. Set too short, it becomes a way to void a market that was merely slow.', fix: 'Use 3,600 seconds or more.' },
+  'expiry delay is above the permitted maximum': { group: 'timing', plain: 'Over 90 days.', why: 'The escape hatch has to be reachable in a human timeframe or it is decoration.', fix: 'Use 7,776,000 seconds or less.' },
+  'expiry must be longer than the dispute window': { group: 'timing', plain: 'Expiry would arrive before arguing was allowed to finish.', why: 'Two parameters that are individually legal can still be nonsense together, so they are checked against each other and not only against their own bounds.', fix: 'Raise the expiry, or shorten the dispute window.' },
+  'resolve window is below the permitted floor': { group: 'timing', plain: 'Under 10 minutes.', why: 'This is how long after the embargo a verdict may still be asked for. Too narrow and an ordinary outage voids a market that was perfectly resolvable.', fix: 'Use 600 seconds or more.' },
+  'resolve window is above the permitted maximum': { group: 'timing', plain: 'Over 30 days.', why: 'Whoever calls <code>resolve</code> picks the instant the source is read, and on a live source the instant can pick the answer. A bounded window makes that hours of discretion rather than unlimited.', fix: 'Use 2,592,000 seconds or less.' },
+  'resolve delay cannot be negative': { group: 'timing', plain: 'A market cannot become resolvable before it exists.', why: '', fix: '' },
+  'resolve delay is longer than the permitted maximum': { group: 'timing', plain: 'The embargo exceeds one year.', why: 'The embargo is fixed before anything about the answer is known, which is what makes it fair — but a stake behind a ten-year embargo is a stake that is gone.', fix: 'Use 31,536,000 seconds or less.' },
+
+  'source url is too long': { group: 'source', plain: 'Over 300 characters.', why: 'The URL is stored on-chain and shown to every backer before they stake. A URL nobody reads to the end is a URL nobody checked.', fix: 'Use a shorter address for the same document.' },
+  'source url has no host': { group: 'source', plain: 'Nothing between the scheme and the path.', why: 'The host is the part of a source that provenance actually attaches to, so a URL without one cannot be graded at all.', fix: 'Give the full address, including the domain.' },
+
+  'oracle dispute window is too short to stake against': { group: 'stakes', plain: 'Under 60 seconds to object.', why: 'The payout contract re-checks all four of the oracle’s timing parameters itself rather than trusting the address it was handed. An oracle is only as safe as its settings, and the settings are chosen by whoever deployed it.', fix: 'Point this payout contract at an oracle configured within the accepted bounds.' },
+  'oracle dispute window is too long to stake against': { group: 'stakes', plain: 'Over 7 days to object.', why: 'Legal for an oracle that only publishes findings; too long for one holding staked money behind the window.', fix: 'Use an oracle with a dispute window of 7 days or less.' },
+  'oracle expires markets too aggressively to stake against': { group: 'stakes', plain: 'Jams void in under 3 days.', why: 'Voiding refunds everyone, which is a free exit for whoever is losing. A short expiry makes stalling into a strategy.', fix: 'Use an oracle whose expiry is 3 days or more.' },
+  'oracle takes too long to expire a jam to stake against': { group: 'stakes', plain: 'Jams take over 30 days to void.', why: 'The refund path has to be reachable, or a jammed market is a permanent hole with money in it.', fix: 'Use an oracle whose expiry is 30 days or less.' },
+  'oracle resolution window is too short to stake against': { group: 'stakes', plain: 'Under a day to ask for a verdict.', why: 'If the window closes before anyone realistically calls <code>resolve</code>, the market cannot settle and the stakes wait for expiry instead.', fix: 'Use an oracle with a resolution window of 1 day or more.' },
+  'oracle resolution window is too long to stake against': { group: 'stakes', plain: 'Over 7 days to ask for a verdict.', why: 'The longer that window, the more discretion the caller has over which moment of a live source becomes the answer.', fix: 'Use an oracle with a resolution window of 7 days or less.' },
+
+  'only an open market can be snapshotted': { group: 'lifecycle', plain: 'Already ruled, disputed or closed.', why: 'The snapshot records what the source said <em>before</em> the answer existed. Taken afterwards it records nothing worth having.', fix: '' },
+  'market is not final': { group: 'lifecycle', plain: 'The verdict can still change.', why: '', fix: 'Wait for the dispute window to elapse, then close it.' },
+
+  'market id is required': { group: 'shape', plain: 'The reference was blank.', why: '', fix: '' },
+  'market id is too long': { group: 'shape', plain: 'Over 64 characters.', why: '', fix: '' },
+  'market id must not contain a pipe character': { group: 'shape', plain: 'A pipe is reserved.', why: 'Positions are keyed by joining the market id and the backer’s address with a pipe. A market id containing one could be crafted to collide with somebody else’s position — an injection bug in a place nobody expects one, found in review rather than in use.', fix: 'Choose a reference without <code>|</code> in it.' },
+  'question is required': { group: 'shape', plain: 'Nothing was asked.', why: '', fix: '' },
+  'resolution criteria are required': { group: 'shape', plain: 'No test for what would settle it.', why: 'The criteria are what the validators are actually judging against. Without them the model is being asked for an opinion, not a reading.', fix: 'State plainly what makes it YES and what makes it NO.' },
+  'a dispute must state a reason': { group: 'shape', plain: 'An objection with no argument.', why: 'The reason is what an appeal is heard on. A blank one is a stall.', fix: '' },
+  'side must be YES or NO': { group: 'shape', plain: 'Not a side of this book.', why: 'A market may settle UNRESOLVED, but nobody may stake on that outcome — paying for deadlock is paying someone to cause it.', fix: '' },
+  'oracle address must be a 0x-prefixed 20-byte address': { group: 'shape', plain: 'Not an address.', why: 'Checked at construction, because a payout contract pointed at nothing would fail only later, with money already in it.', fix: 'Paste the full <code>0x…</code> address of the deployed oracle, 40 hex characters after the prefix.' },
+  'a whole number was expected': { group: 'shape', plain: 'A number arrived as something else.', why: 'Tooling sometimes sends <code>"300"</code> where the contract expects <code>300</code>. Rather than crash on the comparison, the value is coerced if it is unambiguously a whole number and refused clearly if it is not. This exists because a deployment failed on exactly that.', fix: 'Enter digits only — no quotes, units or decimal point.' },
+  'unrecognised timestamp format': { group: 'shape', plain: 'The chain clock read oddly.', why: 'Block time is parsed defensively rather than assumed. If it cannot be read, nothing time-dependent is allowed to proceed on a guess.', fix: '' },
+  'dispute timestamp is missing': { group: 'shape', plain: 'An objection with no time on it.', why: 'The dispute window is measured from it, so an objection without one cannot be placed in the sequence.', fix: '' },
 };
 
 const GROUPS = {
@@ -841,6 +906,7 @@ const GROUPS = {
   source:    ['The source', 'An oracle is only as good as what it reads, and a source nobody attested is a claim nobody checked.'],
   stakes:    ['Money', 'Rules that decide who may bet, when the book shuts, and when a verdict becomes spendable.'],
   lifecycle: ['Order of play', 'A market moves one way. These refuse anything out of sequence.'],
+  shape:     ['The fields', 'The least interesting rules, listed anyway. An incomplete catalogue invites the reader to assume the omissions do not exist.'],
 };
 
 function ruleFor(msg) {
@@ -1552,7 +1618,7 @@ async function send(fn, args, note, verify, opts = {}) {
                  <p class="rwhy"><span>Detail</span>The full receipt is in the browser console
                     (Cmd+Option+I), and the transaction page has the contract's own message.</p>`) +
         `<p class="rnote">This is a rule working, not a fault. Every refusal in these contracts is a
-          sentence someone wrote on purpose &mdash; there are 71 of them, listed under
+          sentence someone wrote on purpose &mdash; there are 67 of them, listed under
           <a href="#rules">The rules</a>.</p>
          <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">The transaction &rarr;</a>`, 'err');
       return false;
@@ -1786,17 +1852,72 @@ setInterval(() => {
 (function rulebook() {
   const byGroup = {};
   for (const [msg, r] of Object.entries(RULES)) (byGroup[r.group] ||= []).push([msg, r]);
-  document.getElementById('rulebook').innerHTML = Object.entries(GROUPS).map(([g, [title, lede]]) => `
-    <section class="rgroup">
-      <h3>${title} <span>${(byGroup[g] || []).length}</span></h3>
-      <p class="rlede">${lede}</p>
-      ${(byGroup[g] || []).map(([msg, r]) => `
-        <details class="rule">
-          <summary><code>${esc(msg)}</code><span class="rsum">${r.plain}</span></summary>
-          ${r.why ? `<p>${r.why}</p>` : ''}
-          ${r.fix ? `<p class="rfix"><span>What to do</span>${esc(r.fix)}</p>` : ''}
-        </details>`).join('')}
-    </section>`).join('');
+
+  const KEYS  = Object.keys(GROUPS);
+  const TOTAL = Object.keys(RULES).length;
+  const tabs  = document.getElementById('rule-tabs');
+  const book  = document.getElementById('rulebook');
+  const find  = document.getElementById('rule-find');
+  const line  = document.getElementById('rule-count');
+  let RTAB = KEYS[0];
+
+  const card = ([msg, r]) => `
+    <details class="rule">
+      <summary><code>${esc(msg)}</code><span class="rsum">${r.plain}</span></summary>
+      ${r.why ? `<p>${r.why}</p>` : ''}
+      ${r.fix ? `<p class="rfix"><span>What to do</span>${esc(r.fix)}</p>` : ''}
+    </details>`;
+
+  function draw() {
+    const q = find.value.trim().toLowerCase();
+
+    // While searching, no tab is current: results are drawn across every group.
+    tabs.innerHTML = KEYS.map(g =>
+      `<button role="tab" data-rtab="${g}" class="${!q && g === RTAB ? 'on' : ''}"
+         aria-selected="${!q && g === RTAB}">${GROUPS[g][0]}<span>${(byGroup[g] || []).length}</span></button>`
+    ).join('');
+
+    if (!q) {
+      const [, lede] = GROUPS[RTAB];
+      line.innerHTML = `${(byGroup[RTAB] || []).length} of ${TOTAL} refusals &middot; the other three groups are a tab away`;
+      book.innerHTML = `<section class="rgroup">
+        <p class="rlede">${lede}</p>
+        ${(byGroup[RTAB] || []).map(card).join('')}
+      </section>`;
+      return;
+    }
+
+    // Searching crosses all four groups on purpose. Someone holding a refusal
+    // from the chain knows the sentence, not which drawer it was filed under.
+    const hay = ([msg, r]) => (msg + ' ' + r.plain + ' ' + (r.why || '') + ' ' + (r.fix || '')).toLowerCase();
+    let hits = 0;
+    const html = KEYS.map(g => {
+      const found = (byGroup[g] || []).filter(e => hay(e).includes(q));
+      if (!found.length) return '';
+      hits += found.length;
+      return `<section class="rgroup">
+        <h3>${GROUPS[g][0]} <span>${found.length}</span></h3>
+        ${found.map(card).join('')}
+      </section>`;
+    }).join('');
+
+    line.innerHTML = hits
+      ? `${hits} of ${TOTAL} refusals match &ldquo;${esc(find.value.trim())}&rdquo;`
+      : `nothing matches &ldquo;${esc(find.value.trim())}&rdquo;`;
+    book.innerHTML = html || `<section class="rgroup"><p class="rlede">Every refusal in these
+      contracts is a fixed sentence, so pasting the error text exactly as the chain returned it is
+      the surest way to find it. Clear the box to go back to the four groups.</p></section>`;
+  }
+
+  tabs.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-rtab]');
+    if (!b || b.disabled) return;
+    RTAB = b.dataset.rtab;
+    find.value = '';   // picking a group is a request to leave the search behind
+    draw();
+  });
+  find.addEventListener('input', draw);
+  draw();
 })();
 
 // Open the record on arrival — a reviewer should not have to press anything.
