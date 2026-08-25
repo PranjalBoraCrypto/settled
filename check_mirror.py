@@ -22,9 +22,28 @@ import pathlib
 import re
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
-HTML = (ROOT / "index.html").read_text(encoding="utf-8")
-PY = (ROOT / "contracts" / "settled.py").read_text(encoding="utf-8")
+def find(name: str) -> pathlib.Path:
+    """Locate a file without assuming the layout around it.
+
+    The first version hard-coded `../contracts/settled.py`, which is how this
+    working tree is arranged but NOT how the repository is: there the files sit
+    side by side at the root. Published as it was, the one script the README
+    invites a reader to run crashed before its first check. So look in the
+    obvious places instead of asserting one.
+    """
+    here = pathlib.Path(__file__).resolve().parent
+    for base in (here, here.parent, pathlib.Path.cwd()):
+        for candidate in (base / name, base / "contracts" / name):
+            if candidate.is_file():
+                return candidate
+    sys.exit(
+        f"could not find {name}. Run this from the directory holding "
+        f"settled.py and index.html, or pass them side by side."
+    )
+
+
+HTML = find("index.html").read_text(encoding="utf-8")
+PY = find("settled.py").read_text(encoding="utf-8")
 
 problems = []
 

@@ -1795,7 +1795,11 @@ async function send(fn, args, note, verify, opts = {}) {
         // Carry the prediction across. The receipt will not name the rule, but we
         // know which one we expected — so the panel can show the chain confirming
         // the exact sentence this page called in advance.
-        send(fn, args, note, verify, { ...opts, to: addr, skipLocal: true, expect: blocked });
+        // `predicted` — not `expect` — because only this path actually ran a
+        // check. `expect` is a guess several callers pass in as a fallback hint,
+        // and treating the two alike let the panel announce that the chain had
+        // confirmed a prediction nobody made.
+        send(fn, args, note, verify, { ...opts, to: addr, skipLocal: true, predicted: blocked });
       });
       return false;
     }
@@ -1813,19 +1817,55 @@ async function send(fn, args, note, verify, opts = {}) {
       hash, status: TransactionStatus.ACCEPTED, retries: 450, interval: 4000,
     });
 
-    const result = receipt?.txExecutionResultName || receipt?.status;
-    if (String(result).includes('ERROR')) {
+    // `waitForTransactionReceipt` resolves on UNDETERMINED, LEADER_TIMEOUT,
+    // VALIDATORS_TIMEOUT and CANCELED as well as ACCEPTED, and the execution
+    // result for those is NOT_VOTED. Testing for "ERROR" therefore let every
+    // one of them through as a success — including create_market, which then
+    // cleared the form. The user watched their question disappear under a green
+    // tick, with nothing filed. Only FINISHED_WITH_RETURN means it ran.
+    const result = String(receipt?.txExecutionResultName || receipt?.status || '');
+    const ran    = result === 'FINISHED_WITH_RETURN';
+    const errored = result.includes('ERROR');
+
+    if (!ran && !errored) {
+      say('Undetermined — nothing was written',
+        `The transaction came back <code>${esc(result || 'with no result')}</code>: the validators did
+         not reach a result the chain would record. <b>Nothing was written and nothing was spent
+         beyond gas</b> &mdash; and nothing you typed has been cleared.<br><br>
+         This is the safety property rather than a fault. A blank is better than a wrong entry in a
+         permanent record. Send it again when you are ready.<br><br>
+         <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Read the votes &rarr;</a>`,
+        'err');
+      await load();
+      return false;
+    }
+
+    if (errored) {
       // The pre-flight above catches the deterministic refusals, which is nearly
       // all of them. Reaching here means either a non-deterministic method
       // refused, or state moved between the check and the send.
-      const why  = refusalFrom(receipt);
-      const rule = ruleFor(why) || ruleFor(opts.expect);
+      // Three different things, kept apart on purpose:
+      //   why       — a sentence the chain actually returned. Rare: the receipt
+      //               normally carries only a hash of the result.
+      //   predicted — a rule this page checked BEFORE sending, and was right about.
+      //   opts.expect — a guess the call site passes in from context. Nothing
+      //               verified it. It may name the wrong rule entirely.
+      // An earlier version collapsed all three, so a guess was printed as the
+      // contract's own words under the heading "Confirmed on-chain".
+      const why   = refusalFrom(receipt);
+      const known = ruleFor(why);
+      const guess = known ? null : ruleFor(opts.expect);
+      const rule  = known || guess;
       const loose = why ? '' : anyProseFrom(receipt, [...args, fn]);
+
+      // Confirmed only if a check actually ran and the chain did not contradict it.
+      const confirmed = opts.predicted && (!why || why === opts.predicted);
 
       console.log('[Settled] full receipt for ' + hash, receipt);
 
-      refusePanel(why || opts.expect || '', rule,
-        (opts.expect ? `<p class="rnote2"><b>Confirmed on-chain.</b> This page named that rule before
+      // Quote only what someone actually said. A guess never becomes a quotation.
+      refusePanel(why || (confirmed ? opts.predicted : '') || '', rule,
+        (confirmed ? `<p class="rnote2"><b>Confirmed on-chain.</b> This page named that rule before
             the transaction was sent; the network has now refused it independently. Five validators
             each ran the call and returned the same result &mdash; which is what identical
             <code>validatorResultHash</code> values mean &mdash; and the execution came back
@@ -1834,7 +1874,12 @@ async function send(fn, args, note, verify, opts = {}) {
             revealing, not a contradiction: once the finalization window closes it reads
             <code>ACCEPTED (ERROR)</code>. Accepted describes the network; the error describes the
             contract.</p>` : '') +
-        (rule ? '' : `<p class="plain">A rule fired. Nothing was changed and nothing was lost.</p>
+        (guess ? `<p class="rnote2"><b>This is this page guessing.</b> The chain refused the
+            transaction but did not hand back a sentence this interface can read, so the rule named
+            above is the one most often responsible for a refused <code>${esc(fn)}</code> &mdash; not
+            the contract's own words. It may be the wrong rule. The transaction below is the
+            authority: the explorer resolves the result hash and shows what was actually said.</p>` : '') +
+        (known ? '' : `<p class="plain">Nothing was changed and nothing was lost.</p>
                  <p class="rwhy"><span>Why there is no sentence here</span>A GenLayer receipt carries
                     the transaction's calldata, a status, and a <em>hash</em> of the result &mdash; one
                     per validator, identical when they agree. The message itself is not in it, and a
@@ -1847,7 +1892,7 @@ async function send(fn, args, note, verify, opts = {}) {
                     resolves the result hash and shows the contract's own message. Paste that sentence
                     into the search box under The rules to read why it exists.</p>`),
         hash,
-        rule ? '' : `<button class="ghost" id="cp-receipt" type="button">Copy the raw receipt</button>`);
+        known ? '' : `<button class="ghost" id="cp-receipt" type="button">Copy the raw receipt</button>`);
 
       // An unrecognised refusal is a gap in this interface, not in the chain.
       // Hand the reader the evidence in one click instead of "open devtools".
