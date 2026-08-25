@@ -1746,18 +1746,31 @@ async function send(fn, args, note, verify, opts = {}) {
 
   let hash;
   try {
-    const blocked = localRefusal(fn, args);
+    const blocked = opts.skipLocal ? '' : localRefusal(fn, args);
     if (blocked) {
       refusePanel(blocked, ruleFor(blocked),
         `<p class="rnote2">Caught in this page before anything was sent &mdash; no signature, no gas,
-          the record untouched. <b>Do not take this page's word for it.</b> The contract enforces the
-          same rule, and refused this exact market on-chain:
+          the record untouched.<br><br><b>Do not take this page's word for it.</b> A page saying a
+          contract would refuse something is not evidence that it would. Two ways to check, and the
+          second is the real one:<br><br>
+          &mdash; the deployed contract refused this exact market on-chain:
           <a href="${EXPLORER}/tx/${REFUSAL_TX}" target="_blank" rel="noopener">that transaction
-          &rarr;</a><br><br>The explorer heads it <code>ACCEPTED (ERROR)</code>, and both halves are
-          meant: the <em>network accepted</em> the transaction &mdash; all five validators ran it and
-          agreed on the outcome, which is why their result hashes are identical &mdash; and the
+          &rarr;</a>. The explorer heads it <code>ACCEPTED (ERROR)</code>, and both halves are meant:
+          the <em>network accepted</em> the transaction &mdash; all five validators ran it and agreed
+          on the outcome, which is why their result hashes are identical &mdash; and the
           <em>contract refused</em> what it was asked to do. Consensus succeeding on a refusal is the
-          system working, not failing.</p>`, null);
+          system working, not failing.<br><br>
+          &mdash; or stop trusting either of us and make it happen now:</p>
+         <p><button class="ghost" id="force-tx" type="button">Send it to the chain anyway</button></p>
+         <p class="rnote">That skips this page's check entirely and puts the transaction in front of
+           the validators. It costs a little gas and comes back
+           <code>FINISHED_WITH_ERROR</code>, which is the point.</p>`, null);
+
+      const force = document.getElementById('force-tx');
+      if (force) force.addEventListener('click', () => {
+        force.disabled = true;
+        send(fn, args, note, verify, { ...opts, to: addr, skipLocal: true });
+      });
       return false;
     }
 
