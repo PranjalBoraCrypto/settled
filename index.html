@@ -393,6 +393,11 @@
                  transition:border-color .18s ease; }
   .rfind input:focus { outline:none; border-color:var(--seal); }
   .rfind input::placeholder { color:var(--ink-3); }
+  .ghost { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; letter-spacing:.08em;
+           text-transform:uppercase; background:none; color:var(--ink-2); cursor:pointer;
+           border:1px solid var(--rule-2); border-radius:3px; padding:7px 12px;
+           transition:border-color .18s ease, color .18s ease; }
+  .ghost:hover { border-color:var(--seal); color:var(--seal); }
   .rcount { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px;
             letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3);
             margin:0 0 18px; }
@@ -909,10 +914,14 @@ const GROUPS = {
   shape:     ['The fields', 'The least interesting rules, listed anyway. An incomplete catalogue invites the reader to assume the omissions do not exist.'],
 };
 
+// Longest key first. Several refusals are prefixes of longer ones, and matching
+// in declaration order would let the short one answer for the long one.
+const RULE_KEYS = Object.keys(RULES).sort((a, b) => b.length - a.length);
+
 function ruleFor(msg) {
   if (!msg) return null;
   const t = String(msg).trim().toLowerCase();
-  for (const k of Object.keys(RULES)) if (t.includes(k.toLowerCase())) return { key: k, ...RULES[k] };
+  for (const k of RULE_KEYS) if (t.includes(k.toLowerCase())) return { key: k, ...RULES[k] };
   return null;
 }
 
@@ -1557,6 +1566,59 @@ function render(markets) {
   }).join('');
 }
 
+// ---------- reading a refusal out of a receipt ----------
+// First attempt walked a whitelist of likely field names looking for prose. It
+// found nothing on a real refusal, and the reader was told to open devtools —
+// which is precisely the moment an interface has given up.
+//
+// This does the opposite. Every refusal in these contracts is a fixed sentence,
+// and all sixty-seven are in RULES. So flatten the whole receipt to text, decode
+// anything that looks encoded, and look for a sentence we already know. Guessing
+// which field holds the message breaks whenever the receipt shape changes;
+// searching for a sentence we wrote ourselves does not.
+function decodedPools(receipt) {
+  let text;
+  try { text = JSON.stringify(receipt, (k, v) => typeof v === 'bigint' ? v.toString() : v); }
+  catch { text = String(receipt); }
+  const pools = [text];
+  const printable = s => /[ -~]{8,}/.test(s);
+
+  for (const m of (text.match(/[A-Za-z0-9+/]{16,}={0,2}/g) || []).slice(0, 400)) {
+    try { const d = atob(m); if (printable(d)) pools.push(d); } catch { /* not base64 */ }
+  }
+  for (const m of (text.match(/(?:0x)?[0-9a-fA-F]{32,}/g) || []).slice(0, 400)) {
+    const h = m.replace(/^0x/, '');
+    let d = '';
+    for (let i = 0; i + 1 < h.length; i += 2) d += String.fromCharCode(parseInt(h.slice(i, i + 2), 16));
+    if (printable(d)) pools.push(d);
+  }
+  return pools;
+}
+
+function refusalFrom(receipt) {
+  const hay = decodedPools(receipt).join('\n').toLowerCase();
+  // Longest first, so a short sentence contained inside a longer one never
+  // shadows the longer one.
+  const keys = Object.keys(RULES).sort((a, b) => b.length - a.length);
+  for (const k of keys) if (hay.includes(k.toLowerCase())) return k;
+  return '';
+}
+
+// Last resort when the sentence is not in the receipt at all: show the reader
+// whatever prose IS there, rather than sending them to the console.
+function anyProseFrom(receipt) {
+  for (const pool of decodedPools(receipt)) {
+    for (const t of pool.split(/["'\\{}\[\],\n]+/)) {
+      const s = t.trim();
+      if (s.length > 12 && s.length < 300 && /\s/.test(s) && /[a-z]{3}/.test(s) &&
+          !/^0x/.test(s) && !/^[A-Z_ ]+$/.test(s) && (s.match(/[a-zA-Z]/g) || []).length > s.length / 2) {
+        return s;
+      }
+    }
+  }
+  return '';
+}
+
 // ---------- writes ----------
 async function send(fn, args, note, verify, opts = {}) {
   if (!writeClient) { say('Not connected', 'Connect your wallet first.', 'err'); return false; }
@@ -1584,43 +1646,41 @@ async function send(fn, args, note, verify, opts = {}) {
       // Dig the contract's own sentence out of the receipt. Every refusal in
       // these contracts is a specific message written to say exactly what is
       // wrong; showing a status code instead throws that away and leaves the
-      // user guessing between forty possible causes.
-      let why = '';
-      const seen = new Set();
-      (function hunt(o, depth) {
-        if (!o || depth > 6 || why) return;
-        if (typeof o === 'string') {
-          const t = o.trim();
-          // The contract's messages are lowercase prose, not identifiers.
-          if (t.length > 8 && t.length < 300 && /\s/.test(t) && !/^0x/.test(t) &&
-              !/^[A-Z_]+$/.test(t) && /[a-z]/.test(t)) { why = t; }
-          return;
-        }
-        if (typeof o !== 'object' || seen.has(o)) return;
-        seen.add(o);
-        for (const k of ['message', 'error', 'errorMessage', 'reason', 'stderr', 'genvmResult',
-                         'result', 'data', 'consensus_data', 'leader_receipt', 'eq_outputs']) {
-          if (o[k] !== undefined) hunt(o[k], depth + 1);
-          if (why) return;
-        }
-        if (Array.isArray(o)) for (const v of o) { hunt(v, depth + 1); if (why) return; }
-      })(receipt, 0);
+      // reader guessing between sixty-seven possible causes.
+      const why  = refusalFrom(receipt);
+      const rule = ruleFor(why) || ruleFor(opts.expect);
+      const loose = why ? '' : anyProseFrom(receipt);
 
       console.log('[Settled] full receipt for ' + hash, receipt);
 
-      const rule = ruleFor(why) || ruleFor(opts.expect);
-      say('The contract refused &mdash; here is why',
+      say('The contract refused — here is why',
         (why ? `<blockquote class="said">${esc(why)}</blockquote>` : '') +
         (rule ? `<p class="plain">${rule.plain}</p>
                  ${rule.why ? `<p class="rwhy"><span>Why this rule exists</span>${rule.why}</p>` : ''}
                  ${rule.fix ? `<p class="rfix"><span>What to do</span>${esc(rule.fix)}</p>` : ''}`
-              : `<p class="plain">A rule fired. Nothing was changed and nothing was lost.</p>
-                 <p class="rwhy"><span>Detail</span>The full receipt is in the browser console
-                    (Cmd+Option+I), and the transaction page has the contract's own message.</p>`) +
+              : `<p class="plain">A rule fired. Nothing was changed and nothing was lost &mdash; a
+                    refused write costs gas and leaves the record exactly as it was.</p>
+                 <p class="rwhy"><span>Detail</span>The chain did not hand back a sentence this
+                    interface recognises${loose ? `, but the receipt carries this:` : '.'}</p>
+                 ${loose ? `<blockquote class="said">${esc(loose)}</blockquote>` : ''}
+                 <p class="rfix"><span>What to do</span>Open the transaction below &mdash; the
+                    explorer shows the contract's own message. If it names one of the sixty-seven
+                    refusals, paste it into the search box under The rules to read why it exists.</p>
+                 <p><button class="ghost" id="cp-receipt" type="button">Copy the raw receipt</button></p>`) +
         `<p class="rnote">This is a rule working, not a fault. Every refusal in these contracts is a
           sentence someone wrote on purpose &mdash; there are 67 of them, listed under
           <a href="#rules">The rules</a>.</p>
          <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">The transaction &rarr;</a>`, 'err');
+
+      // An unrecognised refusal is a gap in this interface, not in the chain.
+      // Hand the reader the evidence in one click instead of "open devtools".
+      const cp = document.getElementById('cp-receipt');
+      if (cp) cp.addEventListener('click', () => {
+        const txt = JSON.stringify(receipt, (k, v) => typeof v === 'bigint' ? v.toString() : v, 2);
+        navigator.clipboard.writeText(txt).then(
+          () => { cp.textContent = 'Copied — paste it anywhere'; },
+          () => { cp.textContent = 'Copy blocked — the receipt is in the console'; });
+      });
       return false;
     }
 
@@ -1629,7 +1689,7 @@ async function send(fn, args, note, verify, opts = {}) {
     if (verify) {
       const moved = await verify();
       if (!moved) {
-        say('Undetermined &mdash; nothing written',
+        say('Undetermined — nothing written',
           `The validators did not all reach the same finding, so the contract declined to record one.
            The entry is unchanged and can be put again.<br><br>This is the safety property, not a fault:
            a blank is better than a wrong entry in a permanent record.<br><br>
@@ -1646,7 +1706,7 @@ async function send(fn, args, note, verify, opts = {}) {
     const msg = String(e?.message || e);
     if (msg.includes('Timed out') || msg.includes('timed out')) {
       // Still in flight. Calling this a failure invites a second, needless send.
-      say('Still running &mdash; not failed',
+      say('Still running — not failed',
         `The validators are taking longer than this page was willing to wait. Nothing is lost.<br><br>
          <b>Do not send it again.</b> Give it a few minutes, then press <b>Open the record</b>.<br><br>
          <a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Watch it on-chain &rarr;</a>`, 'err');
