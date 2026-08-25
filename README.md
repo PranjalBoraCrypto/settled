@@ -105,9 +105,11 @@ A verdict becomes spendable only when **two independent locks** open:
   reorganised is not visible to the payout contract at all.
 
 Those are different guarantees. The first says the humans have stopped arguing;
-the second says the chain has stopped moving. On Bradbury the second costs about
-half an hour, and the site shows it as a countdown rather than letting a refusal
-look like a fault.
+the second says the chain has stopped moving. On Bradbury the second costs
+somewhere between about 29 and about 40 minutes — it is not a fixed window — and
+the site shows it as a countdown rather than letting a refusal look like a fault.
+The countdown is labelled an estimate, because nothing in the browser can read
+finalized chain state to confirm it.
 
 **Writing this exposed a hole in v1.** There was no path from `RESOLVED` to
 `FINAL` — a market that resolved and was never disputed sat there forever. Nobody
@@ -165,16 +167,75 @@ wrong thing to bet on.
 
 ## The demonstration, end to end
 
-| Step | What happened |
+Run twice, on two independent markets. The second — `payout-demo-3` — is linked
+transaction by transaction below, because a claim with no link behind it is a
+claim.
+
+| # | Step | Wallet | What happened | On-chain |
+| --- | --- | --- | --- | --- |
+| 1 | **Filed** | creator | A question with a 20-minute embargo, fixed before anything about the answer was known. | [`0x723ef9a1…`](https://explorer-bradbury.genlayer.com/tx/0x723ef9a1dc2497301159a17d6241caf0220b2e39d9e552e18db719b0f06bec34) |
+| 2 | **Attested** | creator | Every validator fetched the source and agreed on `5a3d690aa3c15005…` exactly. | [`0x754da744…`](https://explorer-bradbury.genlayer.com/tx/0x754da744b90628208e9d82c80fa443af1c946ea6e559fae0de5e78bbd330f9b5) |
+| 3 | **Pool opened** | creator | The payout contract re-checked the oracle's own parameters before accepting money. | [`0x5f094bd6…`](https://explorer-bradbury.genlayer.com/tx/0x5f094bd642cb07c7a63e9e4b64aaa735fd395ee93329f51a84b8b66f80741d94) |
+| 4 | **Staked YES** | backer A | 0.0030 GEN. | [`0xf4caf0f5…`](https://explorer-bradbury.genlayer.com/tx/0xf4caf0f5ea9d081bb5dc9c49048fa87ca4f891adb1c590bf43256dea5da34939) |
+| 5 | **Staked NO** | backer B | 0.0010 GEN. Uneven on purpose — it makes the payout obviously right rather than a coin flip. | [`0x7966c49d…`](https://explorer-bradbury.genlayer.com/tx/0x7966c49dd9604dae9e260659b39c5c773937cc1d02d941682db565b13532691f) |
+| — | *The event* | — | `run2.json` edited from `"pending"` to `"confirmed"`. | — |
+| 6 | **Ruled** | creator | Validators read it independently and returned **YES**, quoting `"status": "confirmed"`. Digest now `c751bad651fe8d40…` — **the source moved between the two readings**, recorded on-chain. | [`0xb9136c86…`](https://explorer-bradbury.genlayer.com/tx/0xb9136c86cd54723d8463c34b40f7c6c276b0e13d98da7c73d6a383ad78cc199f) |
+| 7 | **Closed** | creator | Dispute window elapsed unchallenged. | [`0x5f8981f8…`](https://explorer-bradbury.genlayer.com/tx/0x5f8981f82793a18c22c0db414e537d7649f66667502dc6b19794ff0599aa97e9) |
+| — | **Settle refused** | creator | Tried before the chain had finalized the close. **`ACCEPTED (ERROR)`** — the second lock, refusing. | [`0x200c06a9…`](https://explorer-bradbury.genlayer.com/tx/0x200c06a9c4111afc55bd1236cbffbc9dd100af908aa8fbc9a74cd0091bf4a08e) |
+| 8 | **Settled** | creator | Retried after finality. Payout read the oracle at finalized state and fixed the result. | [`0xe771a125…`](https://explorer-bradbury.genlayer.com/tx/0xe771a125b0897f59781236890bf6887891f5ab48f374d65abf81c16250d65db0) |
+| 9 | **Claimed** | backer A | Withdrew **0.0040 GEN** — its own stake plus the losing side's. | [`0x99524142…`](https://explorer-bradbury.genlayer.com/tx/0x995241424008b86db52660822aa4c6a6b47c39596e901549df61aede0c8e1417) |
+
+**The refused settle is not an embarrassment, it is the point.** A verdict that
+the humans have stopped arguing about is still not spendable until the chain has
+stopped moving. Row 8 is the same call, unchanged, succeeding once that was true.
+
+**Check any row against its arguments rather than against this table.** Open a
+transaction, press **Show data → Decoded**, and the explorer prints exactly what
+was called:
+
+```json
+{"args": ["payout-demo-3", "YES"], "method": "back"}
+```
+
+That is row 4. Every row can be read the same way, which means nothing here has to
+be taken on the strength of a label I wrote. Each transaction also carries a
+**Transaction Journey** — submitted, activation, leader proposal, vote commit, all
+votes committed, leader reveal, vote reveal, decided, finalized. That is why a
+payout takes minutes rather than seconds: it is not one node executing a transfer,
+it is a validator set agreeing that the transfer should happen.
+
+### Both readings reproduce
+
+The two digests the validators recorded are not assertions. Both files are in
+this repository and both hash to what is on-chain:
+
+```bash
+BASE=https://raw.githubusercontent.com/PranjalBoraCrypto/settled/main
+
+# 5a3d690aa3c15005acbd030482b93e88103606e36f729e14b4dd8d8443afdb1f  (step 2)
+curl -s $BASE/run2.before.json | keccak-256sum
+
+# c751bad651fe8d40547e400229b548cf81fb84ca7807db56b258df8f4f3c1da0  (step 6)
+curl -s $BASE/run2.json        | keccak-256sum
+```
+
+Two reproducible hashes, taken at two moments, differing — and a contract that
+noticed. That is the entire claim, and none of it requires trusting the operator.
+
+### The first run
+
+`payout-demo-10975` ran the same lifecycle earlier against `feed.json`, digests
+`0960f3815bf588ec…` → `83cd5291cfd2c1d6…`, and also paid out 0.0040 GEN. Its
+files are committed too (`feed.before.json`, `feed.json`), so its digests
+reproduce the same way.
+
+### Rules refusing, on-chain
+
+| What was attempted | Result |
 | --- | --- |
-| **Filed** | A question with a 20-minute resolution embargo, fixed before anything about the answer was known. |
-| **Attested** | Validators fetched the source and agreed on `0960f3815bf588ec…`. |
-| **Staked** | 0.0030 GEN on YES, 0.0010 GEN on NO, from two different wallets. Neither is the market creator — the contract forbids it. |
-| **The event** | `feed.json` edited from `"pending"` to `"confirmed"`. |
-| **Ruled** | Validators read it independently and returned **YES**, quoting `"status": "confirmed"`. The digest was now `83cd5291cfd2c1d6…` — **the source had moved between the two readings**, and that is on-chain. |
-| **Closed** | Dispute window elapsed unchallenged. |
-| **Settled** | Payout read the oracle at finalized state and fixed the result. |
-| **Claimed** | The YES backer withdrew **0.0040 GEN** — its own stake plus the losing side's. |
+| A market whose source was a `bit.ly` link | [`0x8407a415…`](https://explorer-bradbury.genlayer.com/tx/0x8407a415c50b8e14f05fd9cc708601e42a8c107eab7eb6b0545cf3ed5317f745) — *"link shorteners are not accepted as sources"* |
+| A market creator staking on its own market | refused — *"the market creator cannot stake on their own market"* |
+| Staking after the book closed | refused — the embargo had lifted |
 
 The losing wallet is worth looking at too: the site shows it in red, states it
 backed NO against a YES finding, and offers nothing to claim.

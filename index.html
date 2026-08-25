@@ -774,7 +774,7 @@ const RULES = {
     plain: 'The oracle has closed it, but the chain has not finalized that yet.',
     why: `The second of two locks. The first says the arguing is over; this says the chain has stopped
           moving. A resolution that could still be reorganised cannot move anyone's money.`,
-    fix: 'Wait out the finality window — roughly half an hour on Bradbury — and settle again.' },
+    fix: 'Wait out the finality window and settle again. On Bradbury this has been observed at anywhere from about 29 to about 40 minutes; the exact moment is published on the closing transaction, under pending action.' },
   'this market is not stale enough to expire': {
     group: 'timing',
     plain: 'Not stuck yet, just unattended.',
@@ -1073,7 +1073,15 @@ let POOL_ERR = null;
 // first time either side changed.
 let POSITIONS = {};
 // Bradbury's finalization window, as reported on its own transaction pages.
-const FINALITY_WINDOW = 1800;
+// Bradbury's finalization window is not a constant. Observed: ~29 minutes on one
+// transaction, ~40 on another. This is therefore an ESTIMATE and is deliberately
+// generous — a countdown that finishes early invites the reader to click, be
+// refused, and conclude the contract is broken when it is doing its job.
+//
+// Nothing in this page can verify chain finality: `genlayer-js` as bundled has no
+// way to read at finalized state. So when this elapses the page says the estimate
+// has elapsed. It does NOT say the lock is open, because it does not know.
+const FINALITY_WINDOW = 2400;
 
 const GEN = 10n ** 18n;
 function gen(wei) {
@@ -1285,7 +1293,7 @@ function waitingOn(m) {
     const pool = POOLS[m.id];
     if (pool && !pool.settled) {
       // Bradbury publishes this as a "finalization window" on every transaction
-      // — roughly half an hour. Measured from when the verdict was closed, since
+      // — variable, not fixed. Measured from when the verdict was closed, since
       // that is the write the payout contract needs to see finalized.
       const ft = Date.parse(String(m.finalized_at || '').replace(' ', 'T'));
       if (!isNaN(ft)) {
@@ -1296,11 +1304,20 @@ function waitingOn(m) {
                   for the <b>chain</b> to finalize that decision, because it reads verdicts only at
                   finalized state. A resolution that could still be reorganised cannot move anyone's
                   money. This is the second of the two locks, and the reason a verdict is not the same
-                  thing as a payment. Approximate: Bradbury publishes the exact window on the
-                  transaction itself.` };
+                  thing as a payment.<br><br><b>This countdown is an estimate.</b> Bradbury's window
+                  is not fixed &mdash; it has been seen at both 29 and 40 minutes &mdash; and nothing
+                  in this page can read finalized state to check. The exact moment is published on
+                  the closing transaction itself, under <em>pending action</em>.` };
         }
-        return { gate: null, label: 'Both locks open',
-          why: `The verdict is closed and the chain has finalized it. The pool can settle.` };
+        // NOT "both locks open". The first lock is a fact this page can read; the
+        // second is a guess it cannot. Saying otherwise sent a reader to a refusal
+        // while the page assured them the way was clear.
+        return { gate: null, label: 'Second lock &middot; estimate elapsed', soft: true,
+          why: `The oracle has closed this, and the estimated finality window has passed &mdash; so
+                settling should now go through. <b>Should, not will.</b> This page cannot read
+                finalized chain state, so it cannot confirm the second lock has opened; if the
+                settle is refused, the window simply has not elapsed yet. Wait a few minutes and
+                click again. A refusal here costs nothing and changes nothing.` };
       }
       // No countdown is possible here: chain finality has no published deadline,
       // and the bundled client cannot read finalized state to check. So the
@@ -1851,10 +1868,19 @@ async function send(fn, args, note, verify, opts = {}) {
     say('Confirm in your wallet', note);
     hash = await writeClient.writeContract({ address: addr, functionName: fn, args, value });
 
+    // "Usually quick" was wrong and it mattered: someone claiming their winnings
+    // watched a spinner for minutes believing something had jammed. There is no
+    // fast path here. EVERY call is a consensus round — a leader executes it, a
+    // validator set independently re-executes it, then they commit and reveal
+    // votes. Only the reason for the wait differs between these two branches.
     say('Sent', (opts.slow === false
-        ? `Waiting for the chain. Usually quick.`
-        : `The validators are each reading the source and forming their own view. This is slow by nature
-           &mdash; minutes, not seconds. Leave it be.`) +
+        ? `Every call here is a consensus round, not a single node executing: a leader runs it, the
+           validators independently run it again, and then they commit and reveal their votes. That is
+           the <em>revealing</em> stage you will see on the explorer. Expect a few minutes, not
+           seconds &mdash; and do not send it again while it is in flight.`
+        : `The validators are each fetching the source and forming their own view, then agreeing.
+           This is the slow one &mdash; minutes, not seconds, because it includes a model reading a web
+           page on every node. Leave it be.`) +
       `<br><br><a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">Follow it on-chain &rarr;</a>`);
 
     const receipt = await readClient.waitForTransactionReceipt({
