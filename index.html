@@ -1201,7 +1201,7 @@ let W_TAB = 'claimable';
 
 function wallet(markets) {
   const box = document.getElementById('wallet');
-  if (!account || !Object.keys(POSITIONS).length) { box.hidden = true; return; }
+  if (!account) { box.hidden = true; return; }
 
   const rows = [];
   for (const [id, p] of Object.entries(POSITIONS)) {
@@ -1231,9 +1231,27 @@ function wallet(markets) {
     rows.push({ id, m, pool, p, staked, took, side, bucket, note });
   }
 
-  if (!rows.length) { box.hidden = true; return; }
   box.hidden = false;
   document.getElementById('w-who').textContent = account.slice(0, 6) + '…' + account.slice(-4);
+
+  // A connected wallet holding nothing used to hide this section entirely, which
+  // reads as a missing feature rather than an empty state. Worse, the commonest
+  // reason to hold nothing is a rule doing its job — so say which.
+  if (!rows.length) {
+    const mine = Object.entries(markets)
+      .filter(([, m]) => String(m.creator || '').toLowerCase() === account.toLowerCase());
+    document.getElementById('w-tabs').innerHTML = '';
+    document.getElementById('w-body').innerHTML = `<p class="wempty">
+      ${mine.length
+        ? `This wallet holds no positions, and on ${mine.length === 1 ? 'the market' : mine.length + ' of the markets'}
+           below it could not: <b>it filed the question.</b> A market's creator chose the wording, the
+           criteria and the source, so the contract bars them from betting on it — otherwise every one
+           of those choices becomes a way to pay themselves.`
+        : `This wallet holds no positions. Back a side on an open market and it will appear here,
+           sorted by whether there is anything to do about it.`}
+    </p>`;
+    return;
+  }
 
   const TABS = [['claimable', 'Claimable'], ['open', 'Open'], ['history', 'Settled']];
   const counts = Object.fromEntries(TABS.map(([k]) => [k, rows.filter(r => r.bucket === k).length]));
