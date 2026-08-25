@@ -558,7 +558,8 @@
         <p>A second contract stakes real GEN on the finding and pays out on it. Findings are spendable
           only at <em>FINAL</em>, and the payout contract reads them only at chain-finalized state — so
           a result waits both for the arguing to stop and for the chain to stop.</p>
-        <p class="gproof"><b>0.0040 GEN</b> has changed hands on one market.
+        <p class="gproof"><b>0.0040 GEN</b> changed hands on <code>payout-demo-10975</code> &mdash;
+          a recorded figure from that market, not a live total.
           <a href="#e-payout-demo-10975">See it &rarr;</a></p>
       </div>
       <div class="ground">
@@ -1313,6 +1314,7 @@ function wallet(markets) {
     const pool = POOLS[id], m = markets[id];
     if (!pool || !m) continue;
     const took = paidOut(p, pool);
+    const refunded = String(pool.result || '') === 'REFUND';
     const side = BigInt(p.staked_yes || 0) > 0n
       ? (BigInt(p.staked_no || 0) > 0n ? 'BOTH' : 'YES') : 'NO';
     let bucket, note;
@@ -1323,10 +1325,19 @@ function wallet(markets) {
         : 'A finding is entered. The pool has not been settled yet.';
     } else if (!p.claimed && took > 0n) {
       bucket = 'claimable';
-      note = `Won. ${gen(took)} GEN is waiting to be withdrawn.`;
+      // A REFUND is not a win. payout.py returns REFUND when the finding is
+      // UNRESOLVED or when one side of the book was empty, and hands every
+      // backer their own stake back — including the ones who were wrong. Calling
+      // that "Won" told a backer who had picked the losing side that they had won.
+      note = refunded
+        ? `Refunded, not won. The market could not pay out, so every stake is returned as it was
+           placed. ${gen(took)} GEN is waiting to be withdrawn &mdash; your own money back.`
+        : `Won. ${gen(took)} GEN is waiting to be withdrawn.`;
     } else if (p.claimed) {
       bucket = 'history';
-      note = `Won and withdrawn. Took ${gen(took)} GEN on a ${gen(staked)} stake.`;
+      note = refunded
+        ? `Refunded and withdrawn. The market could not pay out; you took your ${gen(staked)} stake back.`
+        : `Won and withdrawn. Took ${gen(took)} GEN on a ${gen(staked)} stake.`;
     } else {
       bucket = 'history';
       note = `Lost. The finding was ${esc(pool.result)}; this stake went to the other side.`;
@@ -1412,7 +1423,12 @@ function ledger(markets) {
     fig(ruled, 'findings entered') +
     fig(closed, 'closed for spending') +
     (pools.length ? fig(gen(staked) + ' GEN', 'staked on outcomes') : '') +
-    (settled ? fig(gen(paid) + ' GEN', 'released to backers', 'paid') : '');
+    // NOT "released to backers". payout.py is pull-based: claim() emits the
+    // transfer, and the contract exposes no per-pool claimed total, so this page
+    // cannot know what has actually been withdrawn. It knows what the network
+    // has decided is owed. Saying more than that was counting money still
+    // sitting in the contract as though it had moved.
+    (settled ? fig(gen(paid) + ' GEN', 'settled and payable', 'paid') : '');
 
   if (!payoutAddress() || POOL_ERR) {
     document.getElementById('lnote').innerHTML =
@@ -1427,10 +1443,12 @@ function ledger(markets) {
   const stampline = ` Read from Bradbury at ${at} UTC, the moment you opened this page.`;
 
   document.getElementById('lnote').innerHTML = settled
-    ? `<b>${gen(paid)} GEN has changed hands because validators read a web page and agreed on what it said.</b>
-       Every figure here is read live from Bradbury &mdash; nothing is hardcoded.${stampline} Follow any
-       entry below to its transactions and check it, or reproduce a recorded hash yourself in one click.`
-    : `Every figure here is read live from Bradbury &mdash; nothing is hardcoded.${stampline}
+    ? `<b>${gen(paid)} GEN is payable on findings the validators reached by reading a web page.</b>
+       Payment is pull-based &mdash; the contract holds each share until its backer claims it &mdash; and
+       nothing here can tell you who already has, because the contract keeps no public tally of that.
+       Every figure in this strip is read live from Bradbury; none is written into the page.${stampline}
+       Follow any entry below to its transactions, or reproduce a recorded hash yourself in one click.`
+    : `Every figure in this strip is read live from Bradbury; none is written into the page.${stampline}
        Findings become spendable only once closed, and only then can a pool pay out.`;
 }
 
@@ -1552,8 +1570,14 @@ function render(markets) {
             <dd><b>Lost.</b> This wallet backed ${BigInt(p.staked_yes || 0) > 0n ? 'YES' : 'NO'} and the
             finding was ${esc(pool.result)}. Its ${gen(BigInt(p.staked_yes || 0) + BigInt(p.staked_no || 0))}
             GEN went to the other side, which is what it was staked against. Nothing to claim.</dd></div>`;
-          return `<div class="entry"><dt>Owed</dt>
-            <dd><b>${gen(took)} GEN</b> &mdash; its own stake back, plus the losing side&rsquo;s.</dd></div>`;
+          // A REFUND has no losing side to take money from — everyone gets their
+          // own stake back, so describing it as winnings was simply untrue.
+          return String(pool.result || '') === 'REFUND'
+            ? `<div class="entry"><dt>Refunded</dt>
+               <dd><b>${gen(took)} GEN</b> &mdash; this wallet's own stake, returned. The market could
+               not pay out, so nobody won and nobody lost.</dd></div>`
+            : `<div class="entry"><dt>Owed</dt>
+               <dd><b>${gen(took)} GEN</b> &mdash; its own stake back, plus the losing side&rsquo;s.</dd></div>`;
         })() : ''}
       </dl></div>` : '';
 
@@ -2070,8 +2094,10 @@ document.getElementById('records').addEventListener('click', async (ev) => {
   if (act === 'settle') {
     if (!P) return;
     await send('settle', [id],
-      `Reading the final verdict and fixing the result. The payout contract grants itself no discretion here
-       &mdash; it records what the oracle said.`,
+      `Reading the final verdict and fixing the result. The payout contract takes no human input and has
+       no override &mdash; it records what the oracle said. Its one rule of its own: a disputed market whose
+       appeal came back undetermined keeps its first-pass verdict rather than voiding, because voiding
+       refunds everyone and that would let a losing side escape by stalling.`,
       poolSettled, { expect: 'verdict is not final on finalized chain state yet', to: P, slow: false });
     return;
   }
@@ -2176,7 +2202,7 @@ setInterval(() => {
 
     if (!q) {
       const [, lede] = GROUPS[RTAB];
-      line.innerHTML = `${(byGroup[RTAB] || []).length} of ${TOTAL} refusals &middot; the other three groups are a tab away`;
+      line.innerHTML = `${(byGroup[RTAB] || []).length} of ${TOTAL} refusals &middot; the other four groups are a tab away`;
       book.innerHTML = `<section class="rgroup">
         <p class="rlede">${lede}</p>
         ${(byGroup[RTAB] || []).map(card).join('')}
@@ -2184,7 +2210,7 @@ setInterval(() => {
       return;
     }
 
-    // Searching crosses all four groups on purpose. Someone holding a refusal
+    // Searching crosses all five groups on purpose. Someone holding a refusal
     // from the chain knows the sentence, not which drawer it was filed under.
     const hay = ([msg, r]) => (msg + ' ' + r.plain + ' ' + (r.why || '') + ' ' + (r.fix || '')).toLowerCase();
     let hits = 0;
@@ -2203,7 +2229,7 @@ setInterval(() => {
       : `nothing matches &ldquo;${esc(find.value.trim())}&rdquo;`;
     book.innerHTML = html || `<section class="rgroup"><p class="rlede">Every refusal in these
       contracts is a fixed sentence, so pasting the error text exactly as the chain returned it is
-      the surest way to find it. Clear the box to go back to the four groups.</p></section>`;
+      the surest way to find it. Clear the box to go back to the five groups.</p></section>`;
   }
 
   tabs.addEventListener('click', ev => {

@@ -24,7 +24,13 @@ Two things. This is how each is answered, and what answering them exposed.
 
 `payout.py` is a parimutuel pool that stakes native GEN on a market and pays out
 on the oracle's finding. Nothing about it is decorative: `settle()` reads the
-oracle and records what it said, with no discretion of its own.
+oracle and records what it said. It takes no human input and has no override.
+
+One rule is its own, and it is load-bearing rather than incidental: a disputed
+market whose appeal returns `UNRESOLVED` keeps its first-pass verdict instead of
+voiding. See *The escape hatch was itself a theft path* below — voiding refunds
+everyone, so without this rule, deadlocking an appeal is a free exit for the
+side that is losing.
 
 A verdict becomes spendable only when **two independent locks** open.
 
@@ -231,8 +237,9 @@ a consensus block is now bound to a local before the closure is built, so a
 missing name raises loudly, and `check_names.py` in this repo checks it in under a
 second.
 
-The last round found nothing wrong with the contracts. Every finding was in
-tooling, or in code added while fixing the previous round.
+The last round found no bug that predated it. Every finding was either in tooling
+or in code added while fixing an earlier round — which is not the same as finding
+nothing: two of them moved money. See below.
 
 ---
 
@@ -373,8 +380,8 @@ explains; the chain proves.
   factory. `genvm-lint` proves statically which code may run inside a consensus
   block by matching the qualified name of the function passed to `run_nondet`
   against the scope where the `gl.nondet.*` calls were found. A closure defined in
-  one scope and passed in another breaks that match — which is what got the
-  companion project rejected on its first submission.
+  one scope and passed in another breaks that match, and the failure is silent
+  until deploy.
 
 - **Written against the SDK source, not the docs.** The published documentation
   contains errors that are load-bearing if copied: `gl.UserError` does not exist

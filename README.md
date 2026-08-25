@@ -59,8 +59,15 @@ links to the thing that shows it.
 ### 1. “The finding is not yet bound to a market settlement or payout.”
 
 `payout.py` is a parimutuel pool that stakes native GEN on a market and pays out
-on the oracle's finding. `settle()` reads the oracle and records what it said,
-with no discretion of its own.
+on the oracle's finding. `settle()` reads the oracle and records what it said. It
+takes no human input and has no override.
+
+It does apply **one** rule of its own, and it is deliberate: if a market was
+disputed and the appeal came back `UNRESOLVED`, the first-pass verdict stands
+rather than the market voiding. That is not a loophole, it closes one — voiding
+refunds everyone, which is a free exit for whoever is losing, so stalling an
+appeal would otherwise be a way to cancel a bet you were losing. Stalling now
+reinstates the answer the staller was trying to escape.
 
 A verdict becomes spendable only when **two independent locks** open:
 
