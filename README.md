@@ -1,193 +1,246 @@
 # Settled
 
-**An adjudication oracle for ambiguous prediction-market questions, built on GenLayer.**
+**An adjudication oracle whose verdicts move money.**
 
-- **Live app:** https://pranjalboracrypto.github.io/settled/
-- **Contract on Testnet Bradbury:** [`0xf02e9d00659f44F4245e371D1A493F1260406C8f`](https://explorer-bradbury.genlayer.com/address/0xf02e9d00659f44F4245e371D1A493F1260406C8f)
+GenLayer validators independently fetch a web source, read it, and rule on what
+it says. A second contract stakes real GEN on that ruling and pays out on it.
+
+**0.0040 GEN has changed hands on Testnet Bradbury because five machines read a
+JSON file and agreed on what it meant.** That is the claim, and everything below
+is how to check it without taking anyone's word for it.
+
+**[Open the live record →](https://pranjalboracrypto.github.io/settled/)**
+
+| | |
+| --- | --- |
+| **Oracle** — `settled.py` | [`0x3AA27bb63D456D83fcC4d3fAC34e5e4BbD6a0138`](https://explorer-bradbury.genlayer.com/address/0x3AA27bb63D456D83fcC4d3fAC34e5e4BbD6a0138) |
+| **Payout** — `payout.py` | [`0xb25975a91277754480CF6f9092e6aF7Db31e824B`](https://explorer-bradbury.genlayer.com/address/0xb25975a91277754480CF6f9092e6aF7Db31e824B) |
+| Network | Testnet Bradbury · chain 4221 |
+| Lint | `genvm-lint 0.11.0` — passes on both files |
+
+The two `.py` files in this repository are **byte-identical to what is deployed
+at those addresses.**
 
 ---
 
-## The problem
+## Check it yourself in thirty seconds
 
-Prediction markets rarely fail at pricing. They fail at **resolution**.
+The market `payout-demo-10975` is settled and paid out. Here is the part that
+needs no trust at all.
 
-A market is written in advance, in English, about a future that hasn't happened yet. When it
-does happen, reality almost never arrives in the shape the wording anticipated. Someone then
-has to read a source and decide what it means — and that is a judgement no deterministic
-chain can perform. `keccak256` cannot tell you whether a press release constitutes an
-announcement.
-
-So the industry outsources it: to a multisig, to a committee, or to token-weighted voting
-where the correct answer is whatever the largest holder decides it is. All three are slow,
-capturable, and have produced settlements a reasonable person would call wrong.
-
-## What Settled does
-
-It puts the reading itself on-chain.
-
-A market names three things: a **question**, the **criteria** that settle it, and a **source**.
-Calling `resolve()` opens a non-deterministic block in which every validator independently
-fetches that source, runs a language model over it, and forms its own verdict.
-
-The network only settles if they agree.
+When the validators ruled, each hashed the source they had fetched, and the
+digest went on-chain:
 
 ```
-OPEN ──resolve()──▶ RESOLVED ──dispute()──▶ DISPUTED ──adjudicate()──▶ FINAL
+83cd5291cfd2c1d644015037bdd09a1276c3c4fda085511fbdd78094846a08e5
 ```
 
-All four transitions are implemented. On testnet the first three are demonstrated on-chain;
-the fourth went undetermined, which is documented below rather than hidden.
-
-A resolved market can be disputed once. `adjudicate()` re-runs the entire judgement with the
-objection placed in front of the validators, and that result is final — an optimistic oracle
-whose appeal is decided by re-reading the evidence rather than by whoever holds the most
-tokens.
-
-## Why this needs GenLayer specifically
-
-Worth scrutinising, because "uses an LLM" is not the same as "needs GenLayer."
-
-The consensus check is not a hash comparison. It is five validators each running inference
-over a live web page and having to arrive at the same answer. That only works if the protocol
-can reach agreement over non-deterministic operations — which is what GenLayer's optimistic
-democracy provides and no other chain does. Remove GenLayer and what's left is one server
-calling a model API and asking you to trust it, which is the centralised-oracle problem this
-was built to solve.
-
-Two design decisions follow from taking that seriously.
-
-**1. Agreement is checked programmatically, not by another model.**
-
-The obvious approach is `gl.eq_principle.prompt_comparative`: hand the leader's answer and the
-validator's answer to a judge model and ask whether they match. That spends an inference call
-to compare three possible values, and a judge model can be talked into "close enough."
-
-Because the outcome is a closed enum, agreement is decided by string equality instead:
-
-```python
-def validate(leader_result) -> bool:
-    if not isinstance(leader_result, gl.vm.Return):
-        return False
-    own = judge()                                    # this validator's own reading
-    return leader_result.calldata["outcome"] == own["outcome"]
-
-verdict = gl.vm.run_nondet_unsafe(judge, validate)
-```
-
-Each validator reads the source itself and compares only the decision. Rationale and quoted
-evidence are free to differ, and always do.
-
-**2. The outcome is three-valued.**
-
-`YES`, `NO`, `UNRESOLVED`. An oracle that cannot say *I don't know* is one that guesses under
-pressure. If the source is silent or ambiguous, that is recorded honestly — and if validators
-genuinely cannot agree, the transaction goes **undetermined**, nothing is written, and the
-market stays open. For an oracle, no answer beats a wrong answer.
-
-## What actually happened on testnet
-
-Both of those claims were tested on Bradbury rather than asserted.
-
-**A market that settled.** [`polymarket-definition`](https://pranjalboracrypto.github.io/settled/)
-asked whether a source describes Polymarket as a prediction market, against the Wikipedia
-article. The validators agreed on `YES`, recording the reasoning *"The source text explicitly
-and repeatedly describes Polymarket as a prediction market"* and quoting the article directly:
-
-> Polymarket is an American cryptocurrency-based prediction market
-
-**A market that refused to settle.** `gl-bradbury-live` asked a comparable question against
-GenLayer's own documentation site. Four leader rotations later the network
-[decided *Undetermined*](https://explorer-bradbury.genlayer.com/tx/0x14f9624d245fb5c776749265181b14e5221f3c1445dbabdf97c4f5c592fd011a)
-and wrote nothing. The leader's reading was sound; the validators simply did not all reach the
-same answer.
-
-The cause turned out to be the source, not the contract. That documentation site renders in
-the browser, so five validators fetching it independently received different amounts of it —
-and a validator handed a half-rendered page honestly answers `UNRESOLVED` while the leader
-says `YES`. They were not malfunctioning. They were disagreeing about what they had read.
-
-**An appeal that could not be agreed either.** The settled market was then disputed with the
-objection *"the source is a Wikipedia article, not Polymarket's own website, so it may not
-reflect how the company describes itself."* The dispute recorded fine. The `adjudicate()` call
-that followed went undetermined, and the market sits at `DISPUTED` in the app today.
-
-That result is worth more than a tidy `FINAL` would have been. Resolution asks validators to
-read a fact; adjudication asks them to weigh an **argument** against that fact. The first
-converges easily — five models agree that a page saying "Polymarket is a prediction market"
-says what it says. The second is genuinely contestable, and the network contested it. An
-appeals process where appeals are harder to settle than original judgements is not a broken
-appeals process; it is an honest one, and it points at the obvious next design: appeals should
-carry a bond and a narrower question, not the whole judgement re-opened.
-
-**That is the most useful thing this project learned, and it generalises:** for an oracle,
-source *determinism* matters as much as source *authority*. A page that returns identical
-bytes to every reader is a usable source; one that is assembled per-request is not, however
-authoritative it looks. The market left open in the app is deliberately left that way as the
-demonstration.
-
-## Repository
-
-| Path | What it is |
-| --- | --- |
-| `settled.py` | The intelligent contract. GenLayer SDK v0.2.x. |
-| `index.html` | The dApp. One static file, no build step, no framework. |
-| `genlayer-js.browser.js` | `genlayer-js@1.1.8` pre-bundled for the browser (see below). |
-| `DEPLOY.md` | Deploy and run it yourself. |
-
-## Notes on the build
-
-**No build step, and no CDN either.** `genlayer-js` is pure ESM whose only external dependency
-is `viem`, so it *can* be loaded from a CDN — but a submission that breaks when a CDN has a bad
-day isn't much of a submission. The SDK is bundled once with esbuild and the artifact committed.
-The page is then genuinely static: `index.html` plus one local module.
+That is the keccak-256 of what
+[`feed.json`](https://raw.githubusercontent.com/PranjalBoraCrypto/settled/main/feed.json)
+serves right now. Reproduce it:
 
 ```bash
-npm install genlayer-js@1.1.8 esbuild
-npx esbuild entry.js --bundle --format=esm --platform=browser --minify \
-  --outfile=genlayer-js.browser.js
+curl -s https://raw.githubusercontent.com/PranjalBoraCrypto/settled/main/feed.json \
+  | keccak-256sum
 ```
 
-**`client.connect()` is deliberately not used.** It requests the GenLayer MetaMask Snap, which
-fails on wallets without Snap support and isn't needed for reads or writes. The app performs
-the EIP-1193 chain switch itself and passes `provider: window.ethereum` to the client.
+Or press **“Fetch the source and hash it here”** on the live site — it pulls the
+source into your own browser, hashes it there, and compares.
 
-**The app verifies writes by reading state back, never by trusting the receipt.** An
-undetermined transaction returns a receipt that looks successful while changing nothing. After
-every `resolve()` or `adjudicate()` the app re-reads the market and confirms the status
-actually moved; if it didn't, it says so plainly instead of reporting success. Slow
-transactions are reported as slow, not as failures — consensus over a live page can take a
-long time, and telling a user it failed invites them to pay for it twice.
+A recorded number anyone can reproduce is evidence. A screenshot is not.
 
-**The contract is written against the SDK source, not the documentation.** GenLayer's docs
-contain errors that are load-bearing if copied: `gl.UserError` doesn't exist (it's
-`gl.vm.UserError`), `prompt_non_comparative` has no `input` parameter, and the web response
-field is `.status`, not `.status_code`. Every API call here was checked against
-`genlayer-py-std` at tag `v0.2.16`.
+---
 
-**Builtin exceptions are never raised.** They crash the WASM runtime with a generic exit code,
-discard the message, and break consensus. Every failure path raises `gl.vm.UserError`, with
-constant strings — error messages are compared for strict equality between leader and
-validator, so interpolating a varying value causes spurious consensus failures.
+## What review asked for
 
-**Storage never crosses into a non-deterministic block.** Storage objects are proxies that
-cannot survive the sub-VM boundary; touching one inside a nondet block raises, the block fails,
-and the symptom looks like a consensus problem rather than the storage bug it is. Every value
-the judgement needs is hoisted into a plain local string before the closure is built.
+The first submission came back with two limitations. Both are addressed, and each
+links to the thing that shows it.
+
+### 1. “The finding is not yet bound to a market settlement or payout.”
+
+`payout.py` is a parimutuel pool that stakes native GEN on a market and pays out
+on the oracle's finding. `settle()` reads the oracle and records what it said,
+with no discretion of its own.
+
+A verdict becomes spendable only when **two independent locks** open:
+
+- **The oracle's lifecycle** reaches `FINAL` — the dispute window elapsed
+  unchallenged, or an appeal was heard and decided.
+- **The chain finalizes that decision.** Every read in `payout.py` that releases
+  money goes through `StorageType.LATEST_FINAL`. A resolution that could still be
+  reorganised is not visible to the payout contract at all.
+
+Those are different guarantees. The first says the humans have stopped arguing;
+the second says the chain has stopped moving. On Bradbury the second costs about
+half an hour, and the site shows it as a countdown rather than letting a refusal
+look like a fault.
+
+**Writing this exposed a hole in v1.** There was no path from `RESOLVED` to
+`FINAL` — a market that resolved and was never disputed sat there forever. Nobody
+had noticed, because the question only becomes urgent when something wants to
+spend the answer. `finalize()` exists because building the consumer forced it.
+
+### 2. “Creator-selected mutable sources remain weakly authenticated.”
+
+Sources are graded by a property that can actually be checked: **does the URL
+name its own content?**
+
+| Tier | Meaning |
+| --- | --- |
+| `PINNED` | The URL names its content — a commit SHA, an IPFS CID, an archive snapshot. Must hash to a digest committed at creation, or no verdict is written. |
+| `MUTABLE` | Everything else. Recorded honestly as such. |
+
+There is deliberately no middle tier for “reputable domain”. Reputation is not a
+cryptographic property.
+
+A mutable source cannot be committed to in advance — that is what makes it
+mutable. So before the embargo lifts, **every validator fetches it and they must
+agree on its digest exactly**. That is an observation, not an assertion.
+
+**The first attempt at this was worse than nothing.** It let the market creator
+*type* a baseline digest at creation and showed it to backers as provenance.
+`create_market` is a deterministic write; it cannot fetch anything. The number
+was never checked against the world. A commitment is worth the observation behind
+it, so the observation is now made.
+
+**And the snapshot earns its place twice.** Because consensus on it is
+exact-digest equality, it doubles as a **determinism filter**: a source carrying a
+timestamp or a rotating banner fails it, and a source validators cannot read
+identically today will deadlock the verdict after the event — by which time money
+is staked. `payout.py` refuses to open a pool until a market has been snapshotted.
+
+Be precise about the direction. *Failing* the snapshot is strong evidence a market
+is unstakeable. *Passing* it is not evidence a market is safe: it says the source
+read identically, once, before any money existed.
+
+---
+
+## Why the strongest sources are the ones you must not bet on
+
+`payout.py` refuses to open a pool on a `PINNED` market. This looks backwards for
+about ten seconds.
+
+If the bytes behind a URL are fixed at market creation, so is the answer. Anyone
+willing to read the document knows the outcome before betting opens. Nothing is
+being predicted; the market is a race to be last to look.
+
+Pinned sources are for adjudicating what a fixed document says. They are the
+wrong thing to bet on.
+
+---
+
+## The demonstration, end to end
+
+| Step | What happened |
+| --- | --- |
+| **Filed** | A question with a 20-minute resolution embargo, fixed before anything about the answer was known. |
+| **Attested** | Validators fetched the source and agreed on `0960f3815bf588ec…`. |
+| **Staked** | 0.0030 GEN on YES, 0.0010 GEN on NO, from two different wallets. Neither is the market creator — the contract forbids it. |
+| **The event** | `feed.json` edited from `"pending"` to `"confirmed"`. |
+| **Ruled** | Validators read it independently and returned **YES**, quoting `"status": "confirmed"`. The digest was now `83cd5291cfd2c1d6…` — **the source had moved between the two readings**, and that is on-chain. |
+| **Closed** | Dispute window elapsed unchallenged. |
+| **Settled** | Payout read the oracle at finalized state and fixed the result. |
+| **Claimed** | The YES backer withdrew **0.0040 GEN** — its own stake plus the losing side's. |
+
+The losing wallet is worth looking at too: the site shows it in red, states it
+backed NO against a YES finding, and offers nothing to claim.
+
+---
+
+## The rules
+
+Seventy-one refusals are written into the two contracts, grouped and explained on
+the live site under **[The rules](https://pranjalboracrypto.github.io/settled/#rules)**.
+
+Most systems hide these. They are shown because a rule nobody can see is
+indistinguishable from a bug — and because several were added only after an
+attempt to break the contract succeeded.
+
+---
+
+## Files
+
+| | |
+| --- | --- |
+| [`settled.py`](settled.py) | The oracle. Deployed as-is. |
+| [`payout.py`](payout.py) | The consumer contract that stakes and pays. Deployed as-is. |
+| [`DESIGN.md`](DESIGN.md) | Why the contracts are shaped this way, **and what broke when they were attacked.** |
+| [`index.html`](index.html) | The whole interface. One file, no build step, `genlayer-js` bundled and committed. |
+| [`feed.json`](feed.json) | The demonstration source. |
+
+---
+
+## What broke when we attacked it
+
+Four rounds of adversarial review, each told to find ways to steal or lock money.
+Around twenty-five findings. [`DESIGN.md`](DESIGN.md) has them all; the shape of
+them:
+
+- **Funds could be locked forever, three separate ways.** Every timing parameter
+  is now bounded at both ends, in both contracts, and the payout contract
+  independently re-checks all four of the oracle's.
+- **A losing bet could be cancelled for free.** An outage during an appeal made
+  every validator agree the market was unresolvable — which refunds everyone.
+- **The escape hatch was itself a theft path.** A jam now falls back to the
+  first-pass verdict rather than voiding it, so stalling reinstates the answer the
+  staller was trying to escape.
+- **A “safety feature” turned out to be a weapon.** `close_early()` let anyone shut
+  the book once the source moved — and freezing a parimutuel is worth money to
+  whoever is already winning. *A defence that pays its attacker more than its user
+  is not a defence.* Deleted.
+- **A feature silently never worked.** A missing name inside a consensus block
+  raised `NameError`, was swallowed identically on every node, and reported a
+  plausible outage forever. Only executing the contract found it.
+
+**The last round deleted rather than added**, because both money-moving findings
+were in mechanisms introduced while fixing earlier rounds. That is the general
+lesson: each fix is new surface, and surface is where bugs live.
+
+---
 
 ## Known limits
 
-- Resolution reads **one** source. A serious deployment wants several and a quorum across them;
-  the contract is structured so that's an additive change to `_make_judge`.
-- Page text is truncated to 12,000 characters. A source burying the decisive fact below that
-  resolves `UNRESOLVED`.
-- No stake or bond gates a frivolous dispute, and adjudication re-opens the whole judgement
-  rather than the narrow point in contention. Both are why the appeal in the log below could
-  not reach consensus, and both are the obvious next milestone.
-- Resolution is slow — real inference on five validators over a live page. The UI is built
-  around that rather than pretending otherwise.
+Stated rather than left to be discovered. Full list in [`DESIGN.md`](DESIGN.md).
+
+- **A mutable source is published by somebody, and that somebody can lie.** The
+  creator is barred from staking and everything is recorded before anyone stakes,
+  but a publisher colluding with a backer through a second key is made *visible*,
+  not prevented. This is the irreducible trust in an oracle that reads one source.
+- **Nothing knows when the event actually happens.** If the embargo lands after
+  the source publishes, the answer is public while the book is open.
+- **Whoever calls `resolve()` picks the instant the source is read**, and on a live
+  source the instant can pick the answer. Bounded windows make that hours rather
+  than unlimited; they do not remove it.
+- **Disputing is free.** The profitable versions are closed, but nothing prices the
+  attempt. The fix is a bond forfeited when the original outcome is upheld, which
+  needs the oracle to custody value. **An unbonded appeal is not really an
+  appeal**, and this is the next piece of work.
+- **Prompt injection is mitigated, not eliminated.** Every party-supplied field is
+  JSON-escaped, and the prompt names them untrusted. A persuasive argument written
+  *inside* a field is still an argument the model reads. Note the shape of the
+  risk: a successful persuasion is deterministic, so every validator is convinced
+  identically and consensus passes unanimously. **Agreement is not truth.**
+- **A single source has no redundancy.** Reading several independent sources and
+  taking the majority would move the cost of forcing a deadlock from “run one
+  flaky endpoint” to “control most of them”. Settled reads one.
+
+---
+
+## Notes for anyone reading the code
+
+- **Line 2 of each contract must stay blank.** The runtime concatenates
+  consecutive leading comment lines into `runner.json`; deleting it folds the
+  header into that object and the contract will not deploy.
+- **The non-deterministic functions are defined inline**, not returned from a
+  factory — `genvm-lint` matches the qualified name of the function passed to
+  `run_nondet` against the scope where the `gl.nondet.*` calls were found.
+- **Written against the SDK source, not the docs**, which contain errors that are
+  load-bearing if copied: `gl.UserError` does not exist (it is `gl.vm.UserError`),
+  and the web response field is `.status`, not `.status_code`.
+- **Contract source goes on-chain and there is a size ceiling.** These files were
+  half prose and would not deploy, which is why the reasoning lives in
+  [`DESIGN.md`](DESIGN.md).
 
 ---
 
 Built for the GenLayer Foundation Portal, Builder → Projects.
-The loading spinner is reused from a sibling submission to the *Design the GenLayer Spinner*
-mission — it animates the same consensus mechanic this contract runs on.

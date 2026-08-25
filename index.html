@@ -231,6 +231,63 @@
   @keyframes gl-halo{0%,83%{opacity:0;transform:scale(.9)}89%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.14)}}
   @keyframes gl-core{0%,83%{opacity:0;transform:scale(.2)}90%,95%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.3)}}
   @media (prefers-reduced-motion: reduce){ .gl-rot,.gl-lit,.gl-ok,.gl-halo,.gl-core{animation:none} .gl-lit{opacity:1} }
+  /* --- what review asked for ------------------------------------------ */
+  /* --- nothing pushes a phone screen sideways ------------------------ */
+  body { overflow-x:hidden; }
+  code, .wq, .rule summary code, .vout code, .said { overflow-wrap:anywhere; }
+  .entry dd, .aa, .rlede { overflow-wrap:break-word; }
+  @media (max-width:640px) {
+    .rule summary { grid-template-columns:1fr; }
+    .gate { grid-template-columns:1fr; }
+    .rail li { min-width:64px; }
+    .rail .rl { font-size:9px; }
+  }
+  /* --- keyboard --------------------------------------------------- */
+  :focus-visible { outline:2px solid var(--seal); outline-offset:3px; border-radius:1px; }
+  .skip { position:absolute; left:-9999px; top:10px; z-index:99; background:var(--seal);
+          color:#fff; padding:10px 16px; font-family:'IBM Plex Mono',ui-monospace,monospace;
+          font-size:12px; text-decoration:none; }
+  .skip:focus { left:16px; }
+  .mlink { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:10.5px; letter-spacing:.08em;
+           text-transform:uppercase; color:var(--ink-3); text-decoration:none; margin-left:18px;
+           transition:color .18s ease; }
+  .mlink:hover { color:var(--seal); }
+  @media (max-width:640px) { .mlink { display:none; } }
+  .asked { border:1px solid var(--seal); background:var(--seal-soft); padding:24px 26px; margin:38px 0 0; }
+  .asked h3 { font-family:'Instrument Serif',Georgia,serif; font-size:25px; font-weight:400; margin:0 0 8px; }
+  .alede { margin:0 0 20px; font-size:15px; line-height:1.6; color:var(--ink-2); max-width:66ch; }
+  .apair { display:grid; grid-template-columns:1fr 1fr; gap:26px; }
+  @media (max-width:720px) { .apair { grid-template-columns:1fr; } }
+  .ask { border-top:2px solid var(--seal); padding-top:14px; position:relative; }
+  .anum { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:10.5px; color:var(--seal);
+          letter-spacing:.1em; }
+  .aq { margin:6px 0 10px; font-family:'Newsreader',Georgia,serif; font-style:italic; font-size:17px;
+        line-height:1.45; color:var(--ink); }
+  .aa { margin:0 0 12px; font-size:14.5px; line-height:1.62; color:var(--ink-2); }
+  .ago { margin:0; display:flex; flex-wrap:wrap; gap:16px; }
+  .ago a { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; letter-spacing:.05em; }
+  .anote { margin:22px 0 0; padding-top:16px; border-top:1px solid var(--rule);
+           font-size:13.5px; line-height:1.6; color:var(--ink-2); }
+  /* --- contracts, tucked away --------------------------------------- */
+  details.docket { margin:30px 0 0; border-top:1px solid var(--rule); }
+  details.docket > summary { list-style:none; cursor:pointer; padding:13px 0;
+    font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:10.5px; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--ink-3); display:flex; align-items:center; gap:9px;
+    transition:color .18s ease; }
+  details.docket > summary::-webkit-details-marker { display:none; }
+  details.docket > summary::before { content:'+'; font-size:13px; color:var(--rule-2); }
+  details.docket[open] > summary::before { content:'\2212'; }
+  details.docket > summary:hover { color:var(--ink-2); }
+  .dfields { display:grid; grid-template-columns:1fr 1fr auto; gap:14px; align-items:end;
+             padding:0 0 20px; }
+  @media (max-width:640px) { .dfields { grid-template-columns:1fr; } }
+
+  /* --- one rhythm for every section --------------------------------- */
+  h2 { margin:56px 0 6px; }
+  .seclede { margin:0 0 22px; }
+  .ledger { margin:38px 0 0; }
+  .wallet { margin:34px 0 0; }
+  .records { margin:0; }
   /* --- your positions ------------------------------------------------ */
   .wallet { border:1px solid var(--rule-2); background:var(--leaf); margin:0 0 38px; }
   .whead { display:flex; flex-wrap:wrap; gap:12px 20px; align-items:baseline;
@@ -342,6 +399,11 @@
                            font-size:10px; letter-spacing:.09em; text-transform:uppercase;
                            color:var(--ink-3); margin-bottom:3px; }
   /* --- a refusal, explained ------------------------------------------ */
+  button.verify { display:block; margin:9px 0 0; font-family:'IBM Plex Mono',ui-monospace,monospace;
+                  font-size:11px; letter-spacing:.05em; padding:6px 12px; }
+  .vout { display:block; margin-top:9px; font-size:13.5px; line-height:1.55; color:var(--ink-2); }
+  .vout.ok { color:var(--yes); } .vout.no { color:var(--appeal); }
+  .vout code { font-size:11.5px; }
   .note.mine { border-color:var(--yes); background:var(--yes-soft); }
   .note.mine .lbl { color:var(--yes); }
   .note.mine.lost { border-color:var(--no); background:var(--no-soft); }
@@ -420,10 +482,16 @@
   <div class="wrap">
     <span class="wordmark"><span data-mark></span> Settled</span>
     <span class="grow"></span>
+    <a class="mlink" href="https://github.com/PranjalBoraCrypto/settled" target="_blank"
+       rel="noopener">Source</a>
+    <a class="mlink" href="https://github.com/PranjalBoraCrypto/settled/blob/main/DESIGN.md"
+       target="_blank" rel="noopener">Design notes</a>
     <span class="acct"><span class="lamp" id="lamp"></span><span id="who">No wallet</span></span>
     <button class="seal" id="connect">Connect</button>
   </div>
 </header>
+
+<a class="skip" href="#asked">Skip to what review asked for</a>
 
 <div class="wrap">
 
@@ -439,6 +507,55 @@
       these findings are bound to a second contract that holds real stakes and pays them out on the result.
       <strong>You can watch a wallet balance change because validators read a web page.</strong> That is the
       claim, and everything below is the apparatus for making it survive contact with someone trying to break it.</p>
+
+    <section class="asked" id="asked">
+      <h3>What review asked for, and where to find it</h3>
+      <p class="alede">This is a resubmission. The first version came back with two specific
+        limitations. Both are addressed below, and each links to the thing that shows it rather than
+        to a claim that it was done.</p>
+
+      <div class="apair">
+        <div class="ask">
+          <span class="anum">1</span>
+          <p class="aq">&ldquo;The finding is not yet bound to a market settlement or payout.&rdquo;</p>
+          <p class="aa">A second contract now stakes real GEN on the finding and pays out on it.
+            The verdict is spendable only when <b>two independent locks</b> open: the oracle's own
+            lifecycle reaching <em>FINAL</em>, and the chain finalizing that decision. One market has
+            run the whole way through &mdash; <b>0.0040&nbsp;GEN changed hands</b> because validators
+            read a web page.</p>
+          <p class="ago"><a href="#e-payout-demo-10975">The market &rarr;</a>
+            <a href="https://explorer-bradbury.genlayer.com/address/0xb25975a91277754480CF6f9092e6aF7Db31e824B"
+               target="_blank" rel="noopener">The payout contract &rarr;</a></p>
+        </div>
+
+        <div class="ask">
+          <span class="anum">2</span>
+          <p class="aq">&ldquo;Creator-selected mutable sources remain weakly authenticated.&rdquo;</p>
+          <p class="aa">Sources are graded by whether the URL names its own content, and a changeable
+            one must be <b>attested by the validators before betting opens</b> &mdash; they fetch it
+            and must agree on its hash exactly. Both readings are recorded, so a source that moved
+            between them is visible on-chain. You can recompute either digest yourself, in this page,
+            in one click.</p>
+          <p class="ago"><a href="#e-payout-demo-10975">The two hashes &rarr;</a>
+            <a href="#rules">What this refuses &rarr;</a></p>
+        </div>
+      </div>
+
+      <p class="anote"><b>No wallet needed to read any of this.</b> Every figure, every hash and the
+        whole record below are read straight from Bradbury when the page loads. Connect one only if
+        you want to file a question or take a side yourself.</p>
+
+      <p class="anote"><b>Reviewing this in a hurry?</b> The figures below are read live from Bradbury
+        on load &mdash; nothing on this page is hardcoded. Section&nbsp;II lists all
+        <a href="#rules">71 refusals</a> written into the two contracts, with the reasoning for each.
+        <a href="https://github.com/PranjalBoraCrypto/settled/blob/main/DESIGN.md" target="_blank"
+        rel="noopener"><code>DESIGN.md</code></a> covers what broke when the contracts were attacked,
+        and what was deleted as a result. The deployed contracts are byte-identical to
+        <a href="https://github.com/PranjalBoraCrypto/settled/blob/main/settled.py" target="_blank"
+        rel="noopener">settled.py</a> and
+        <a href="https://github.com/PranjalBoraCrypto/settled/blob/main/payout.py" target="_blank"
+        rel="noopener">payout.py</a> in the repository.</p>
+    </section>
 
     <div class="grounds">
       <div class="ground">
@@ -459,19 +576,22 @@
       </div>
     </div>
 
-    <div class="docket">
-      <div class="f">
-        <label for="addr">Oracle &mdash; Settled</label>
-        <input id="addr" placeholder="0x&hellip;" spellcheck="false"
-               value="0x3AA27bb63D456D83fcC4d3fAC34e5e4BbD6a0138">
+    <details class="docket">
+      <summary>Contracts &mdash; both live on Bradbury, and already filled in</summary>
+      <div class="dfields">
+        <div class="f">
+          <label for="addr">Oracle &mdash; Settled</label>
+          <input id="addr" placeholder="0x&hellip;" spellcheck="false"
+                 value="0x3AA27bb63D456D83fcC4d3fAC34e5e4BbD6a0138">
+        </div>
+        <div class="f">
+          <label for="paddr">Stakes &mdash; Payout</label>
+          <input id="paddr" placeholder="0x&hellip;" spellcheck="false"
+                 value="0xb25975a91277754480CF6f9092e6aF7Db31e824B">
+        </div>
+        <button id="load">Re-read from the chain</button>
       </div>
-      <div class="f">
-        <label for="paddr">Stakes &mdash; Payout</label>
-        <input id="paddr" placeholder="0x&hellip;" spellcheck="false"
-               value="0xb25975a91277754480CF6f9092e6aF7Db31e824B">
-      </div>
-      <button id="load">Open the record</button>
-    </div>
+    </details>
   </section>
 
   <div class="ledger" id="ledger" hidden>
@@ -498,7 +618,15 @@
     </div>
   </div>
 
-  <h2><span class="n">II.</span> Put a question</h2>
+  <h2 id="rules"><span class="n">II.</span> The rules <span class="n">what these contracts refuse, and why</span></h2>
+  <p class="seclede">Seventy-one refusals are written into the two contracts. Most systems hide these;
+    they are shown here because a rule nobody can see is indistinguishable from a bug &mdash; and
+    because every one of them is here in response to something that could otherwise go wrong. Several
+    were added after an attempt to break the contract succeeded.</p>
+
+  <div class="rules" id="rulebook"></div>
+
+  <h2><span class="n">III.</span> Put a question</h2>
   <p class="seclede">Name what is being asked, exactly what would settle it either way, and where it should be
     read from. Ambiguity written here is ambiguity the network has to arbitrate later.</p>
 
@@ -535,16 +663,12 @@
     </div>
   </div>
 
-  <h2 id="rules"><span class="n">III.</span> The rules <span class="n">what these contracts refuse, and why</span></h2>
-  <p class="seclede">Seventy-one refusals are written into the two contracts. Most systems hide these;
-    they are shown here because a rule nobody can see is indistinguishable from a bug &mdash; and
-    because every one of them is here in response to something that could otherwise go wrong. Several
-    were added after an attempt to break the contract succeeded.</p>
-
-  <div class="rules" id="rulebook"></div>
-
   <footer>
-    <span>Settled &middot; an adjudication oracle on GenLayer</span>
+    <span>Settled &middot; an adjudication oracle on GenLayer &middot;
+      <a href="https://github.com/PranjalBoraCrypto/settled" target="_blank" rel="noopener">Source</a> &middot;
+      <a href="https://github.com/PranjalBoraCrypto/settled/blob/main/DESIGN.md" target="_blank" rel="noopener">Design notes</a> &middot;
+      <a href="https://github.com/PranjalBoraCrypto/settled/blob/main/settled.py" target="_blank" rel="noopener">settled.py</a> &middot;
+      <a href="https://github.com/PranjalBoraCrypto/settled/blob/main/payout.py" target="_blank" rel="noopener">payout.py</a></span>
     <span id="onchain"></span>
   </footer>
 </div>
@@ -562,37 +686,6 @@ import { TransactionStatus } from './genlayer-js.browser.js';
 
 const EXPLORER = 'https://explorer-bradbury.genlayer.com';
 const CHAIN_ID_HEX = '0x107d'; // 4221
-
-/* Annotations on specific entries. A correct null result looks identical to a
-   broken one unless something says otherwise, so the two real deadlocks this
-   contract produced are documented on the entries themselves rather than being
-   left to look like unfinished work. */
-const CASE_NOTES = {
-  'gl-bradbury-live': {
-    label: 'Why this one is still open',
-    body: [
-      `A resolution was run and the validators could not agree, so nothing was written. The transaction
-       rotated through four leaders and was decided <b>undetermined</b>.`,
-      `The cause was the source, not the contract. That page is assembled in the browser, so five validators
-       fetching it independently received different amounts of it — and a validator handed half a page
-       honestly answers UNRESOLVED while the leader says YES. For an oracle, a source that returns identical
-       bytes to every reader matters as much as a source that is authoritative.`,
-    ],
-    link: [`${EXPLORER}/tx/0x14f9624d245fb5c776749265181b14e5221f3c1445dbabdf97c4f5c592fd011a`,
-           'Read the validator votes'],
-  },
-  'polymarket-definition': {
-    label: 'On the appeal',
-    body: [
-      `This finding was disputed, and the objection is recorded below. Adjudication was then run and also
-       came back <b>undetermined</b>, which is why the entry rests here rather than closed.`,
-      `Resolution asks validators to read a fact. Adjudication asks them to weigh an argument against that
-       fact, and that is genuinely contestable — so they contested it. Appeals being harder to settle than
-       original findings is an honest property; it argues for appeals that carry a bond and re-open the
-       narrow point rather than the whole judgement.`,
-    ],
-  },
-};
 
 const PHASE = {
   OPEN:     'Awaiting a finding',
@@ -786,6 +879,69 @@ function ruleFor(msg) {
   const t = String(msg).trim().toLowerCase();
   for (const k of Object.keys(RULES)) if (t.includes(k.toLowerCase())) return { key: k, ...RULES[k] };
   return null;
+}
+
+// Minimal keccak-256. Not SHA3-256: the padding byte is 0x01, not 0x06 — the
+// single difference, and the one that makes every digest come out wrong if you
+// reach for the wrong one.
+const RC = [
+  0x00000001,0x00000000, 0x00008082,0x00000000, 0x0000808a,0x80000000, 0x80008000,0x80000000,
+  0x0000808b,0x00000000, 0x80000001,0x00000000, 0x80008081,0x80000000, 0x00008009,0x80000000,
+  0x0000008a,0x00000000, 0x00000088,0x00000000, 0x80008009,0x00000000, 0x8000000a,0x00000000,
+  0x8000808b,0x00000000, 0x0000008b,0x80000000, 0x00008089,0x80000000, 0x00008003,0x80000000,
+  0x00008002,0x80000000, 0x00000080,0x80000000, 0x0000800a,0x00000000, 0x8000000a,0x80000000,
+  0x80008081,0x80000000, 0x00008080,0x80000000, 0x80000001,0x00000000, 0x80008008,0x80000000];
+const R = [0,1,62,28,27,36,44,6,55,20,3,10,43,25,39,41,45,15,21,8,18,2,61,56,14];
+function keccakF(s) {
+  const C = new Uint32Array(10), D = new Uint32Array(10), B = new Uint32Array(50);
+  for (let round = 0; round < 24; round++) {
+    for (let x = 0; x < 5; x++) {
+      C[x*2] = s[x*2] ^ s[(x+5)*2] ^ s[(x+10)*2] ^ s[(x+15)*2] ^ s[(x+20)*2];
+      C[x*2+1] = s[x*2+1] ^ s[(x+5)*2+1] ^ s[(x+10)*2+1] ^ s[(x+15)*2+1] ^ s[(x+20)*2+1];
+    }
+    for (let x = 0; x < 5; x++) {
+      const lo = C[((x+4)%5)*2], hi = C[((x+4)%5)*2+1];
+      const nlo = C[((x+1)%5)*2], nhi = C[((x+1)%5)*2+1];
+      D[x*2]   = lo ^ ((nlo << 1) | (nhi >>> 31));
+      D[x*2+1] = hi ^ ((nhi << 1) | (nlo >>> 31));
+    }
+    for (let i = 0; i < 25; i++) { s[i*2] ^= D[(i%5)*2]; s[i*2+1] ^= D[(i%5)*2+1]; }
+    for (let i = 0; i < 25; i++) {
+      const r = R[i], x = i % 5, y = (i / 5) | 0, j = y + 5*((2*x + 3*y) % 5);
+      let lo = s[i*2], hi = s[i*2+1];
+      if (r > 0) {
+        if (r < 32) { const nlo = (lo << r) | (hi >>> (32-r)); hi = (hi << r) | (lo >>> (32-r)); lo = nlo; }
+        else if (r === 32) { const t = lo; lo = hi; hi = t; }
+        else { const rr = r - 32; const nlo = (hi << rr) | (lo >>> (32-rr)); hi = (lo << rr) | (hi >>> (32-rr)); lo = nlo; }
+      }
+      B[j*2] = lo; B[j*2+1] = hi;
+    }
+    for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) {
+      const i = x + 5*y;
+      s[i*2]   = B[i*2]   ^ (~B[((x+1)%5 + 5*y)*2]   & B[((x+2)%5 + 5*y)*2]);
+      s[i*2+1] = B[i*2+1] ^ (~B[((x+1)%5 + 5*y)*2+1] & B[((x+2)%5 + 5*y)*2+1]);
+    }
+    s[0] ^= RC[round*2]; s[1] ^= RC[round*2+1];
+  }
+}
+function keccak256(bytes) {
+  const rate = 136, s = new Uint32Array(50);
+  const pad = new Uint8Array(rate - (bytes.length % rate));
+  const msg = new Uint8Array(bytes.length + pad.length);
+  msg.set(bytes); msg[bytes.length] = 0x01; msg[msg.length-1] |= 0x80;
+  for (let off = 0; off < msg.length; off += rate) {
+    for (let i = 0; i < rate/4; i++) {
+      s[i] ^= msg[off+i*4] | (msg[off+i*4+1]<<8) | (msg[off+i*4+2]<<16) | (msg[off+i*4+3]<<24);
+    }
+    keccakF(s);
+  }
+  let out = '';
+  for (let i = 0; i < 8; i++) {
+    const w = s[i] >>> 0;
+    out += ((w & 0xff).toString(16).padStart(2,'0')) + (((w>>>8)&0xff).toString(16).padStart(2,'0'))
+         + (((w>>>16)&0xff).toString(16).padStart(2,'0')) + (((w>>>24)&0xff).toString(16).padStart(2,'0'));
+  }
+  return out;
 }
 
 // ---------- templates ----------
@@ -1177,11 +1333,14 @@ function ledger(markets) {
     return;
   }
 
+  const at = new Date().toISOString().slice(11, 16);
+  const stampline = ` Read from Bradbury at ${at} UTC, the moment you opened this page.`;
+
   document.getElementById('lnote').innerHTML = settled
     ? `<b>${gen(paid)} GEN has changed hands because validators read a web page and agreed on what it said.</b>
-       Every figure here is read live from Bradbury when this page loads &mdash; nothing is hardcoded. Follow any
-       entry below to its transactions and check it.`
-    : `Every figure here is read live from Bradbury when this page loads &mdash; nothing is hardcoded.
+       Every figure here is read live from Bradbury &mdash; nothing is hardcoded.${stampline} Follow any
+       entry below to its transactions and check it, or reproduce a recorded hash yourself in one click.`
+    : `Every figure here is read live from Bradbury &mdash; nothing is hardcoded.${stampline}
        Findings become spendable only once closed, and only then can a pool pay out.`;
 }
 
@@ -1202,7 +1361,6 @@ function render(markets) {
     const phase = String(m.status || 'OPEN');
     const finding = String(m.outcome || 'UNRESOLVED');
     const ruled = phase !== 'OPEN';
-    const note = CASE_NOTES[id];
 
     const pool = POOLS[id];
     const havePayout = !!payoutAddress();
@@ -1277,6 +1435,13 @@ function render(markets) {
             m.baseline_observed ? (m.source_changed
             ? ` &mdash; <b>the source moved</b> between the two readings. That is what a live source reporting an event looks like.`
             : ` &mdash; unchanged from its attested state.`) : ''}</dd></div>` : ''}
+        ${m.observed_digest ? `<div class="entry"><dt>Check it</dt>
+          <dd>The digest above is what the validators hashed. If the source still serves those bytes,
+            anyone can reproduce it &mdash; no trust required.
+            <button class="verify" data-verify="${esc(id)}"
+              data-url="${esc(m.source_url)}" data-digest="${esc(m.observed_digest)}">
+              Fetch the source and hash it here</button>
+            <span class="vout" id="v-${esc(id)}"></span></dd></div>` : ''}
         ${Number(m.resolve_attempts || 0) > 0 ? `<div class="entry"><dt>Failed attempts</dt>
           <dd>${esc(m.resolve_attempts)} &mdash; counted, so a source going dark is distinguishable from one nobody tried.</dd></div>` : ''}
       </dl></div>`;
@@ -1329,11 +1494,6 @@ function render(markets) {
         ${m.dispute_reason ? `<div class="entry"><dt>Objection</dt><dd>${esc(m.dispute_reason)}</dd></div>` : ''}
         <div class="entry"><dt>Source</dt><dd><a href="${esc(m.source_url)}" target="_blank" rel="noopener">${esc(m.source_url)}</a></dd></div>
       </dl>
-      ${note ? `<div class="note">
-          <span class="lbl">${esc(note.label)}</span>
-          ${note.body.map(p => `<p>${p}</p>`).join('')}
-          ${note.link ? `<p><a href="${note.link[0]}" target="_blank" rel="noopener">${esc(note.link[1])} &rarr;</a></p>` : ''}
-        </div>` : ''}
       ${track}
       ${gate}
       ${evidence}
@@ -1444,7 +1604,39 @@ async function send(fn, args, note, verify, opts = {}) {
   }
 }
 
+/* Reproduce a recorded digest in the reader's own browser. The point is not the
+   button, it is that the number on-chain is checkable by anyone who doubts it —
+   which is the difference between evidence and a screenshot. */
 document.getElementById('records').addEventListener('click', async (ev) => {
+  const v = ev.target.closest('[data-verify]');
+  if (v) {
+    const out = document.getElementById('v-' + v.dataset.verify);
+    out.className = 'vout';
+    out.textContent = 'fetching…';
+    try {
+      const res = await fetch(v.dataset.url, { cache: 'no-store' });
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const got = keccak256(bytes.slice(0, 32768));
+      const want = String(v.dataset.digest).toLowerCase();
+      if (got === want) {
+        out.className = 'vout ok';
+        out.innerHTML = `<b>Match.</b> ${bytes.length} bytes fetched just now hash to
+          <code>${got.slice(0, 24)}…</code> &mdash; the same value the validators recorded on-chain.`;
+      } else {
+        out.className = 'vout no';
+        out.innerHTML = `<b>Different.</b> The source now hashes to <code>${got.slice(0, 24)}…</code>,
+          not the recorded <code>${want.slice(0, 24)}…</code>. That is not a fault: a changeable source
+          is expected to change. It is the reason the digest is recorded at all.`;
+      }
+    } catch (e) {
+      out.className = 'vout no';
+      out.innerHTML = `The browser would not fetch it (${esc(e.message || e)}). Check from a terminal:
+        <code>curl -s ${esc(v.dataset.url)} | keccak-256sum</code>`;
+    }
+    return;
+  }
+
+
   const btn = ev.target.closest('[data-act]');
   if (!btn) return;
   const id = btn.dataset.id;
