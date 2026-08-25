@@ -663,6 +663,7 @@
     <div class="acts">
       <button class="seal" id="create" disabled>File it</button>
       <button class="quiet" id="demo">Use a worked example</button>
+      <button class="quiet" id="bad">Try one that gets refused</button>
     </div>
   </div>
 
@@ -688,6 +689,11 @@ import { testnetBradbury } from './genlayer-js.browser.js';
 import { TransactionStatus } from './genlayer-js.browser.js';
 
 const EXPLORER = 'https://explorer-bradbury.genlayer.com';
+
+// The recorded on-chain refusal of `bad-source-demo`. Five validators, unanimous,
+// FINISHED_WITH_ERROR. Kept as a permanent citation so a reader can see the
+// contract refuse a shortened link without needing a funded wallet of their own.
+const REFUSAL_TX = '0x8407a415c50b8e14f05fd9cc708601e42a8c107eab7eb6b0545cf3ed5317f745';
 const CHAIN_ID_HEX = '0x107d'; // 4221
 
 const PHASE = {
@@ -1633,41 +1639,86 @@ function anyProseFrom(receipt, sent = []) {
   return '';
 }
 
-// ---------- asking before paying ----------
-// A transaction receipt does not carry the contract's sentence. It carries the
-// calldata, a status, and a *hash* of the result — five identical hashes, one
-// per validator. You cannot read a message out of a hash, so the refusal panel
-// was reduced to guessing, and guessed wrong.
+// ---------- knowing the answer before asking ----------
+// Two approaches failed before this one, and both failures are worth recording
+// because they are properties of the chain, not bugs that got fixed.
 //
-// Every refusal in these contracts is deterministic: the same arguments are
-// refused by any node, in milliseconds, without consensus. So run the call
-// read-only first and let the node say the sentence out loud.
+//   1. Read the sentence out of the receipt. Impossible: a GenLayer receipt
+//      carries calldata, a status, and a *hash* of the result — one per
+//      validator, identical when they agree. A hash does not decode to words.
+//   2. Run the call read-only first and let a node say it. Refused: nodes
+//      simulate `view` methods, not `write` ones.
 //
-// The result is trusted ONLY when it names one of the sixty-seven. A node that
-// will not simulate, a transport hiccup, a method whose refusal we do not know —
-// all ignored, and the real transaction proceeds. This can improve an error
-// message; it can never block a write that would have succeeded.
-const PREFLIGHT = new Set(['create_market', 'open_pool', 'back', 'settle', 'claim',
-                           'finalize', 'dispute', 'expire']);
+// So the check happens here, in the page. This mirrors the opening validation of
+// `create_market` — the part a person filling in this form can actually trip —
+// in the contract's own order, so the first rule to fire here is the first rule
+// that would fire there.
+//
+// Two honesty constraints, because a mirror that drifts is worse than no mirror:
+//   * It only ever REFUSES. It never approves. Passing these checks says nothing;
+//     the contract still runs all sixty-seven and is the only thing that decides.
+//   * Every constant below is transcribed from settled.py and cited. If you
+//     change one there, change it here.
+const OPAQUE_HOSTS = [   // settled.py · _OPAQUE_HOSTS
+  'bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'ow.ly', 'is.gd',
+  'buff.ly', 'rebrand.ly', 'cutt.ly', 'shorturl.at', 'rb.gy', 'lnkd.in',
+];
+const MAX_ID_CHARS = 64;         // settled.py · _MAX_ID_CHARS
+const MAX_URL_CHARS = 300;       // settled.py · _MAX_URL_CHARS
+const MAX_EMBARGO = 31536000;    // settled.py · _MAX_EMBARGO
 
-async function preflight(addr, fn, args) {
-  if (!PREFLIGHT.has(fn)) return '';
-  let err;
-  try {
-    // Six seconds is generous for a deterministic refusal. Past that, assume the
-    // node is doing something else and stop waiting for it.
-    await Promise.race([
-      readClient.readContract({ address: addr, functionName: fn, args }),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('preflight timeout')), 6000)),
-    ]);
-    return '';
-  } catch (e) { err = e; }
+// settled.py · _url_parts — authority ends at the first of / ? #, userinfo is
+// dropped at the last @, port at the last :.
+function urlHost(url) {
+  const rest = url.slice(8);
+  const cuts = [rest.indexOf('/'), rest.indexOf('?'), rest.indexOf('#')].filter(i => i >= 0);
+  let authority = cuts.length ? rest.slice(0, Math.min(...cuts)) : rest;
+  const at = authority.lastIndexOf('@');
+  if (at >= 0) authority = authority.slice(at + 1);
+  const colon = authority.lastIndexOf(':');
+  const port = colon >= 0 ? authority.slice(colon + 1) : '';
+  if (colon >= 0) authority = authority.slice(0, colon);
+  return { host: authority.toLowerCase(), port };
+}
 
-  let dump = '';
-  try { dump = JSON.stringify(err, Object.getOwnPropertyNames(err)); } catch { /* circular */ }
-  const text = [err?.message, err?.shortMessage, err?.details, err?.cause?.message, dump]
-    .filter(Boolean).join('\n').toLowerCase();
-  for (const k of RULE_KEYS) if (text.includes(k.toLowerCase())) return k;
+// settled.py · _sanitize — strip control and bidi-override characters, then clamp.
+function sanitize(s, limit) {
+  let out = '';
+  for (const ch of String(s)) {
+    const o = ch.codePointAt(0);
+    if (o < 32 && ch !== '\n') continue;
+    if ((o >= 0x202a && o <= 0x202e) || (o >= 0x2066 && o <= 0x2069)) continue;
+    out += ch;
+  }
+  return out.slice(0, limit);
+}
+
+function localRefusal(fn, args) {
+  if (fn !== 'create_market') return '';
+  const [rawId, question, criteria, rawUrl, , embargo] = args;
+
+  const id = String(rawId).trim();
+  if (!id) return 'market id is required';
+  if (id.length > MAX_ID_CHARS) return 'market id is too long';
+  if (Object.prototype.hasOwnProperty.call(LAST_MARKETS || {}, id)) return 'market id already exists';
+  if (!String(question).trim()) return 'question is required';
+  if (!String(criteria).trim()) return 'resolution criteria are required';
+
+  const url = sanitize(rawUrl, MAX_URL_CHARS);
+  if (!url.startsWith('https://')) return 'source url must be https';
+  if (url.length > MAX_URL_CHARS) return 'source url is too long';
+
+  const { host, port } = urlHost(url);
+  if (!host) return 'source url has no host';
+  const bare = host.startsWith('www.') ? host.slice(4) : host;
+  if (OPAQUE_HOSTS.includes(bare)) return 'link shorteners are not accepted as sources';
+  if (port && port !== '443') return 'source url must not specify a non-standard port';
+
+  const n = Number(embargo);
+  if (Number.isFinite(n)) {
+    if (n < 0) return 'resolve delay cannot be negative';
+    if (n > MAX_EMBARGO) return 'resolve delay is longer than the permitted maximum';
+  }
   return '';
 }
 
@@ -1695,13 +1746,14 @@ async function send(fn, args, note, verify, opts = {}) {
 
   let hash;
   try {
-    // Refused writes still cost gas, so find out first.
-    say('Checking the rules', 'Running this call read-only against a node before spending anything on it.');
-    const blocked = await preflight(addr, fn, args);
+    const blocked = localRefusal(fn, args);
     if (blocked) {
       refusePanel(blocked, ruleFor(blocked),
-        `<p class="rnote2">Caught before the transaction was sent, so this cost nothing &mdash;
-          no gas, no signature, and the record is untouched.</p>`, null);
+        `<p class="rnote2">Caught in this page before anything was sent &mdash; no signature, no gas,
+          the record untouched. <b>Do not take this page's word for it.</b> The contract enforces the
+          same rule, and refused this exact market on-chain:
+          <a href="${EXPLORER}/tx/${REFUSAL_TX}" target="_blank" rel="noopener">that transaction
+          &rarr;</a> &mdash; five validators, unanimous, <code>FINISHED_WITH_ERROR</code>.</p>`, null);
       return false;
     }
 
@@ -1965,6 +2017,21 @@ document.getElementById('demo').addEventListener('click', () => {
     <b>pending</b>. File it, attest it, open a pool, take both sides &mdash; then edit that file to say
     <b>confirmed</b> and put it to the validators. The point of using a source you control is that the
     event can be made to happen on cue instead of waiting for the world.`, 'ok');
+});
+
+// Anyone can claim their contract has protections. This fills the form with a
+// market that gets refused, so a reader can watch one work instead.
+document.getElementById('bad').addEventListener('click', () => {
+  document.getElementById('f-id').value = 'bad-source-demo';
+  document.getElementById('f-q').value = 'Does the source confirm the event?';
+  document.getElementById('f-c').value = 'YES if the source confirms it. NO if it denies it.';
+  document.getElementById('f-url').value = 'https://bit.ly/3xample';
+  document.getElementById('f-embargo').value = '1200';
+  say('A market that will be refused', `Everything here is well-formed except the source, which is a
+    shortened link. Press <b>File it</b> and read what comes back.<br><br>The rule is not fussiness:
+    whoever owns a short link can repoint it <em>after</em> a market is created and after money is
+    staked on it, which defeats the provenance model at no cost to the attacker. The destination has
+    to be nameable up front or the source is not a source.`, 'ok');
 });
 
 // One interval for every countdown on the page. Redrawing the record each second

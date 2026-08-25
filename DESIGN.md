@@ -305,6 +305,63 @@ real work, not because it is unimportant.
 
 ---
 
+## Why a refusal cannot be quoted from its receipt
+
+Every refusal in these contracts is a specific sentence, written to say exactly
+what is wrong. Getting that sentence in front of the person who tripped it took
+three attempts, and the two failures are properties of the chain rather than
+bugs that got fixed.
+
+**Attempt 1 — read it out of the transaction receipt.** It is not there. A
+GenLayer receipt carries the calldata (twice), a status, and a *hash* of the
+result — one per validator, identical when they agree:
+
+```
+"validatorResultHash": [ "0xab3f3f10…", "0xab3f3f10…", ×5 ]
+"txExecutionResultName": "FINISHED_WITH_ERROR"
+```
+
+Five machines agreeing on the hash of an error is exactly what consensus should
+produce. It is also unreadable. Successive decoders got as far as recovering the
+*calldata* — and briefly displayed the caller's own question back to them as
+though it were the contract's answer, which is worse than admitting nothing was
+found. Echoing the question as the answer is now explicitly guarded against.
+
+**Attempt 2 — ask a node to run the call read-only first.** Nodes simulate
+`view` methods, not `write` ones. The call was refused, the wallet opened
+anyway, and the receipt was still a hash.
+
+**Attempt 3 — check in the page.** `index.html` mirrors the opening validation of
+`create_market`, which is the part a person filling in the form can actually
+trip. The refusal appears immediately, quoted exactly, with no signature and no
+gas.
+
+Duplicating contract logic in a client is normally a bad trade, so it is
+constrained in two ways:
+
+- **The mirror only ever refuses. It never approves.** Passing it means nothing;
+  the contract still runs all sixty-seven checks and is the only thing that
+  decides. There is no path where the page's opinion admits something the
+  contract would reject.
+- **Drift is detected mechanically.** `contracts/check_mirror.py` parses
+  `settled.py` and `index.html` and fails if the shortener list, the character
+  and duration limits, the sentences, or *the order the checks fire in* have
+  diverged. Order matters: if the mirror tested the URL before the market id, it
+  would confidently name the wrong rule for a market that violates both.
+
+The guard was itself tested against four drift shapes — a shortener dropped, a
+shortener invented, two checks transposed, and a sentence the contract does not
+raise — and catches all four. A checker that cannot fail is not a checker; that
+lesson was already paid for once on this project, when the first version of
+`check_names.py` passed a file whose `snapshot()` was dead code.
+
+Finally, because a page vouching for a contract is not evidence, the refusal
+panel links to the transaction where the deployed contract refused that same
+market on-chain: five validators, unanimous, `FINISHED_WITH_ERROR`. The page
+explains; the chain proves.
+
+---
+
 ## Notes for anyone reading the code
 
 - **Line 2 of each contract must stay blank.** The runtime concatenates

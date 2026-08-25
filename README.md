@@ -175,6 +175,7 @@ attempt to break the contract succeeded.
 | [`payout.py`](payout.py) | The consumer contract that stakes and pays. Deployed as-is. |
 | [`DESIGN.md`](DESIGN.md) | Why the contracts are shaped this way, **and what broke when they were attacked.** |
 | [`index.html`](index.html) | The whole interface. One file, no build step, `genlayer-js` bundled and committed. |
+| [`check_mirror.py`](check_mirror.py) | Fails if the page's copy of the entry rules has drifted from the contract's — values, sentences, **and the order they fire in**. |
 | [`feed.json`](feed.json) | The demonstration source. |
 
 ---
