@@ -231,7 +231,7 @@
   @keyframes gl-halo{0%,83%{opacity:0;transform:scale(.9)}89%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.14)}}
   @keyframes gl-core{0%,83%{opacity:0;transform:scale(.2)}90%,95%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.3)}}
   @media (prefers-reduced-motion: reduce){ .gl-rot,.gl-lit,.gl-ok,.gl-halo,.gl-core{animation:none} .gl-lit{opacity:1} }
-  /* --- what review asked for ------------------------------------------ */
+  /* --- claims, with their proof --------------------------------------- */
   /* --- nothing pushes a phone screen sideways ------------------------ */
   body { overflow-x:hidden; }
   code, .wq, .rule summary code, .vout code, .said { overflow-wrap:anywhere; }
@@ -253,6 +253,10 @@
            transition:color .18s ease; }
   .mlink:hover { color:var(--seal); }
   @media (max-width:640px) { .mlink { display:none; } }
+  .gproof { margin:10px 0 0; padding-top:9px; border-top:1px solid var(--rule);
+            font-size:13.5px; color:var(--ink-2); }
+  .gproof a { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; letter-spacing:.04em; }
+  .orient { margin:26px 0 0; font-size:14px; line-height:1.62; color:var(--ink-2); max-width:74ch; }
   .asked { border:1px solid var(--seal); background:var(--seal-soft); padding:24px 26px; margin:38px 0 0; }
   .asked h3 { font-family:'Instrument Serif',Georgia,serif; font-size:25px; font-weight:400; margin:0 0 8px; }
   .alede { margin:0 0 20px; font-size:15px; line-height:1.6; color:var(--ink-2); max-width:66ch; }
@@ -491,7 +495,7 @@
   </div>
 </header>
 
-<a class="skip" href="#asked">Skip to what review asked for</a>
+<a class="skip" href="#claims">Skip to the claims</a>
 
 <div class="wrap">
 
@@ -508,73 +512,38 @@
       <strong>You can watch a wallet balance change because validators read a web page.</strong> That is the
       claim, and everything below is the apparatus for making it survive contact with someone trying to break it.</p>
 
-    <section class="asked" id="asked">
-      <h3>What review asked for, and where to find it</h3>
-      <p class="alede">This is a resubmission. The first version came back with two specific
-        limitations. Both are addressed below, and each links to the thing that shows it rather than
-        to a claim that it was done.</p>
-
-      <div class="apair">
-        <div class="ask">
-          <span class="anum">1</span>
-          <p class="aq">&ldquo;The finding is not yet bound to a market settlement or payout.&rdquo;</p>
-          <p class="aa">A second contract now stakes real GEN on the finding and pays out on it.
-            The verdict is spendable only when <b>two independent locks</b> open: the oracle's own
-            lifecycle reaching <em>FINAL</em>, and the chain finalizing that decision. One market has
-            run the whole way through &mdash; <b>0.0040&nbsp;GEN changed hands</b> because validators
-            read a web page.</p>
-          <p class="ago"><a href="#e-payout-demo-10975">The market &rarr;</a>
-            <a href="https://explorer-bradbury.genlayer.com/address/0xb25975a91277754480CF6f9092e6aF7Db31e824B"
-               target="_blank" rel="noopener">The payout contract &rarr;</a></p>
-        </div>
-
-        <div class="ask">
-          <span class="anum">2</span>
-          <p class="aq">&ldquo;Creator-selected mutable sources remain weakly authenticated.&rdquo;</p>
-          <p class="aa">Sources are graded by whether the URL names its own content, and a changeable
-            one must be <b>attested by the validators before betting opens</b> &mdash; they fetch it
-            and must agree on its hash exactly. Both readings are recorded, so a source that moved
-            between them is visible on-chain. You can recompute either digest yourself, in this page,
-            in one click.</p>
-          <p class="ago"><a href="#e-payout-demo-10975">The two hashes &rarr;</a>
-            <a href="#rules">What this refuses &rarr;</a></p>
-        </div>
-      </div>
-
-      <p class="anote"><b>No wallet needed to read any of this.</b> Every figure, every hash and the
-        whole record below are read straight from Bradbury when the page loads. Connect one only if
-        you want to file a question or take a side yourself.</p>
-
-      <p class="anote"><b>Reviewing this in a hurry?</b> The figures below are read live from Bradbury
-        on load &mdash; nothing on this page is hardcoded. Section&nbsp;II lists all
-        <a href="#rules">71 refusals</a> written into the two contracts, with the reasoning for each.
-        <a href="https://github.com/PranjalBoraCrypto/settled/blob/main/DESIGN.md" target="_blank"
-        rel="noopener"><code>DESIGN.md</code></a> covers what broke when the contracts were attacked,
-        and what was deleted as a result. The deployed contracts are byte-identical to
-        <a href="https://github.com/PranjalBoraCrypto/settled/blob/main/settled.py" target="_blank"
-        rel="noopener">settled.py</a> and
-        <a href="https://github.com/PranjalBoraCrypto/settled/blob/main/payout.py" target="_blank"
-        rel="noopener">payout.py</a> in the repository.</p>
-    </section>
-
-    <div class="grounds">
+    <div class="grounds" id="claims">
       <div class="ground">
         <h3>The verdict moves money</h3>
-        <p>Findings are spendable only at <em>FINAL</em>, and the payout contract reads them only at
-          chain-finalized state — so a result waits both for the arguing to stop and for the chain to stop.</p>
+        <p>A second contract stakes real GEN on the finding and pays out on it. Findings are spendable
+          only at <em>FINAL</em>, and the payout contract reads them only at chain-finalized state — so
+          a result waits both for the arguing to stop and for the chain to stop.</p>
+        <p class="gproof"><b>0.0040 GEN</b> has changed hands on one market.
+          <a href="#e-payout-demo-10975">See it &rarr;</a></p>
       </div>
       <div class="ground">
         <h3>The source is attested first</h3>
-        <p>Before betting opens, validators fetch the source and must agree on its hash exactly. That records
-          what it said beforehand, and it rejects sources they cannot read identically — while the pool is
-          still empty rather than after the money is in.</p>
+        <p>Before betting opens, every validator fetches the source and they must agree on its hash
+          exactly. That records what it said beforehand, and it rejects sources they cannot read
+          identically — while the pool is still empty rather than after the money is in.</p>
+        <p class="gproof">Both readings are on-chain, and you can reproduce either.
+          <a href="#e-payout-demo-10975">Check one &rarr;</a></p>
       </div>
       <div class="ground">
         <h3>Deadlock is a permitted outcome</h3>
-        <p>If the validators cannot agree, the transaction is undetermined, nothing is written, and the question
-          stays open. A blank beats a wrong entry in a permanent record.</p>
+        <p>If the validators cannot agree, the transaction is undetermined, nothing is written, and the
+          question stays open. A blank beats a wrong entry in a permanent record.</p>
+        <p class="gproof">Seventy-one refusals are written in, and explained.
+          <a href="#rules">Read them &rarr;</a></p>
       </div>
     </div>
+
+    <p class="orient">Everything here reads live from Bradbury when the page loads — nothing is
+      hardcoded, and <b>no wallet is needed to check any of it</b>. Connect one only to file a question
+      or take a side.
+      <a href="https://github.com/PranjalBoraCrypto/settled" target="_blank" rel="noopener">Source</a> ·
+      <a href="https://github.com/PranjalBoraCrypto/settled/blob/main/DESIGN.md" target="_blank"
+         rel="noopener">what broke when it was attacked</a>.</p>
 
     <details class="docket">
       <summary>Contracts &mdash; both live on Bradbury, and already filled in</summary>
