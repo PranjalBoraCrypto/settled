@@ -206,6 +206,12 @@
                 text-transform: uppercase; font-weight: 500 }
   .notice .nb { font-size: 15px; line-height: 1.55; color: var(--ink-2); word-break: break-word;
                 overflow-y: auto; overscroll-behavior: contain; min-height: 0; padding-right: 4px }
+  /* Anything that DOES something lives here, outside the scroll. A button the
+     reader has to go looking for is a button that does not exist. */
+  .notice .nf { flex: 0 0 auto; margin-top: 13px; padding-top: 13px;
+                border-top: 1px solid var(--rule); display: flex; flex-wrap: wrap;
+                gap: 10px 14px; align-items: center }
+  .notice .nf:empty { display: none }
   .notice.err .nh { color: var(--no) }
   .notice.ok  .nh { color: var(--yes) }
   #notice-x { margin-left: auto; background: none; border: none; color: var(--ink-3);
@@ -688,6 +694,7 @@
   <div class="nh"><span id="notice-spin"></span><span id="notice-title">Working</span>
     <button id="notice-x" aria-label="Dismiss">&times;</button></div>
   <div class="nb" id="notice-body"></div>
+  <div class="nf" id="notice-foot"></div>
 </div>
 
 <script type="module">
@@ -1027,13 +1034,15 @@ const notice = document.getElementById('notice');
 const nTitle = document.getElementById('notice-title');
 const nBody  = document.getElementById('notice-body');
 const nSpin  = document.getElementById('notice-spin');
+const nFoot  = document.getElementById('notice-foot');
 let nTimer;
-function say(title, body, kind = '') {
+function say(title, body, kind = '', foot = '') {
   clearTimeout(nTimer);
   notice.className = 'notice show ' + kind;
   nTitle.textContent = title;
   nBody.innerHTML = body || '';
   nBody.scrollTop = 0;   // a new message always starts at its beginning
+  nFoot.innerHTML = foot || '';
   nSpin.innerHTML = ''; nSpin.removeAttribute('data-done');
   if (!kind) { nSpin.setAttribute('data-spin', '15'); stamp(notice); }
   document.getElementById('notice-x').style.display = kind === 'err' ? 'block' : 'none';
@@ -1730,8 +1739,10 @@ function localRefusal(fn, args) {
   return '';
 }
 
-// One panel, two callers: the pre-flight refusal and the on-chain one.
-function refusePanel(why, rule, extra, hash) {
+// One panel, two callers: the local refusal and the on-chain one.
+// `actions` goes in the pinned footer, never in the scrolling body — the reader
+// should not have to scroll past an explanation to reach the thing that acts.
+function refusePanel(why, rule, extra, hash, actions) {
   say('The contract refused — here is why',
     (why ? `<blockquote class="said">${esc(why)}</blockquote>` : '') +
     (rule ? `<p class="plain">${rule.plain}</p>
@@ -1740,9 +1751,10 @@ function refusePanel(why, rule, extra, hash) {
           : '') + (extra || '') +
     `<p class="rnote">This is a rule working, not a fault. Every refusal in these contracts is a
       sentence someone wrote on purpose &mdash; there are 67 of them, listed under
-      <a href="#rules">The rules</a>.</p>` +
-    (hash ? `<a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">The transaction &rarr;</a>` : ''),
-    'err');
+      <a href="#rules">The rules</a>.</p>`,
+    'err',
+    (actions || '') +
+    (hash ? `<a href="${EXPLORER}/tx/${hash}" target="_blank" rel="noopener">The transaction &rarr;</a>` : ''));
 }
 
 // ---------- writes ----------
@@ -1768,11 +1780,11 @@ async function send(fn, args, note, verify, opts = {}) {
           on the outcome, which is why their result hashes are identical &mdash; and the
           <em>contract refused</em> what it was asked to do. Consensus succeeding on a refusal is the
           system working, not failing.<br><br>
-          &mdash; or stop trusting either of us and make it happen now:</p>
-         <p><button class="ghost" id="force-tx" type="button">Send it to the chain anyway</button></p>
-         <p class="rnote">That skips this page's check entirely and puts the transaction in front of
-           the validators. It costs a little gas and comes back
-           <code>FINISHED_WITH_ERROR</code>, which is the point.</p>`, null);
+          &mdash; or stop trusting either of us and make it happen now, with the button below. That
+          skips this page's check entirely and puts the transaction in front of the validators. It
+          costs a little gas and comes back <code>FINISHED_WITH_ERROR</code>, which is the point.</p>`,
+        null,
+        `<button class="ghost" id="force-tx" type="button">Send it to the chain anyway</button>`);
 
       const force = document.getElementById('force-tx');
       if (force) force.addEventListener('click', () => {
@@ -1830,9 +1842,9 @@ async function send(fn, args, note, verify, opts = {}) {
                     an echo of what was sent:</p><blockquote class="said">${esc(loose)}</blockquote>` : ''}
                  <p class="rfix"><span>What to do</span>Open the transaction below &mdash; the explorer
                     resolves the result hash and shows the contract's own message. Paste that sentence
-                    into the search box under The rules to read why it exists.</p>
-                 <p><button class="ghost" id="cp-receipt" type="button">Copy the raw receipt</button></p>`),
-        hash);
+                    into the search box under The rules to read why it exists.</p>`),
+        hash,
+        rule ? '' : `<button class="ghost" id="cp-receipt" type="button">Copy the raw receipt</button>`);
 
       // An unrecognised refusal is a gap in this interface, not in the chain.
       // Hand the reader the evidence in one click instead of "open devtools".
