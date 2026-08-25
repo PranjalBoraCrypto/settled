@@ -409,6 +409,13 @@
                  transition:border-color .18s ease; }
   .rfind input:focus { outline:none; border-color:var(--seal); }
   .rfind input::placeholder { color:var(--ink-3); }
+  /* --- the no-wallet path -------------------------------------------- */
+  .try { border:1px solid var(--seal); background:var(--seal-soft); padding:18px 22px;
+         margin:0 0 34px; }
+  .tlede { margin:0 0 14px; font-size:15px; line-height:1.55; color:var(--ink); }
+  .trow { display:flex; flex-wrap:wrap; gap:10px; }
+  .tnote { margin:14px 0 0; font-size:13.5px; line-height:1.55; color:var(--ink-2); }
+  .tnote b { color:var(--ink); }
   .ghost { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; letter-spacing:.08em;
            text-transform:uppercase; background:none; color:var(--ink-2); cursor:pointer;
            border:1px solid var(--rule-2); border-radius:3px; padding:7px 12px;
@@ -604,6 +611,21 @@
     </details>
   </section>
 
+  <!-- Most people who evaluate this will not install a wallet or fund one, and
+       should not have to. Each of these does the thing rather than describing it,
+       and none of them touches a wallet. -->
+  <section class="try" aria-label="Check this without a wallet">
+    <p class="tlede"><b>No wallet needed for any of this.</b> Each button below does something
+      checkable, right now, in this browser.</p>
+    <div class="trow">
+      <button class="seal" id="t-hash">Reproduce a recorded digest</button>
+      <button id="t-refuse">Watch a rule refuse</button>
+      <button id="t-chain">Open the contracts on the explorer</button>
+    </div>
+    <p class="tnote" id="t-note">The record below is already read live from Bradbury &mdash; nothing
+      on this page is a screenshot.</p>
+  </section>
+
   <div class="ledger" id="ledger" hidden>
     <div class="lrow" id="lrow"></div>
     <p class="lnote" id="lnote"></p>
@@ -678,7 +700,10 @@
         days.</p>
     </div>
     <div class="acts">
-      <button class="seal" id="create" disabled>File it</button>
+      <!-- Not disabled without a wallet. The contract's entry rules are checked in this page
+           first, so pressing this with no wallet still shows a real refusal — and when the form
+           is valid, the wallet prompt explains itself. A dead button explains nothing. -->
+      <button class="seal" id="create">File it</button>
       <button class="quiet" id="demo">Use a worked example</button>
       <button class="quiet" id="bad">Try one that gets refused</button>
     </div>
@@ -816,12 +841,15 @@ const RULES = {
     fix: 'Supply the keccak256 of the source bytes.' },
   'the source could not be read for a baseline': {
     group: 'source',
-    plain: 'The validators could not agree on what the source says.',
-    why: `Attestation demands byte-identical reads across independent machines. A source carrying a
-          timestamp, a rotating banner or a per-request identifier fails it — and a source they cannot
-          agree on today will deadlock the verdict after the event, once money is already staked.
-          Finding out now is the feature.`,
-    fix: 'Use a source that returns identical bytes on every request.' },
+    plain: 'The source could not be fetched.',
+    why: `The attestation could not complete because the fetch itself failed &mdash; unreachable host,
+          a status of 400 or above, or a body that could not be hashed.
+          <b>This is not the disagreement case.</b> If the validators fetch the source but read
+          <em>different bytes</em>, no rule fires at all: consensus simply is not reached, nothing is
+          written, and the transaction comes back undetermined. An earlier version of this card said
+          otherwise, which mattered, because the determinism filter is the argument this project
+          leans on hardest and it was being illustrated with the wrong code path.`,
+    fix: 'Check the URL is reachable and returns a 2xx to an anonymous request.' },
   'this market already has a baseline': {
     group: 'source',
     plain: 'The source has already been attested.',
@@ -906,10 +934,21 @@ const RULES = {
   'resolve delay cannot be negative': { group: 'timing', plain: 'A market cannot become resolvable before it exists.', why: '', fix: '' },
   'resolve delay is longer than the permitted maximum': { group: 'timing', plain: 'The embargo exceeds one year.', why: 'The embargo is fixed before anything about the answer is known, which is what makes it fair — but a stake behind a ten-year embargo is a stake that is gone.', fix: 'Use 31,536,000 seconds or less.' },
 
-  'source url is too long': { group: 'source', plain: 'Over 300 characters.', why: 'The URL is stored on-chain and shown to every backer before they stake. A URL nobody reads to the end is a URL nobody checked.', fix: 'Use a shorter address for the same document.' },
+  'source url is too long': {
+    group: 'source',
+    plain: 'Over 300 characters — but this one cannot fire.',
+    why: `<b>A defect, found while auditing this catalogue, and left visible rather than quietly
+          deleted.</b> <code>create_market</code> sanitises the URL with a function that already
+          clamps it to 300 characters, and only <em>then</em> tests whether it is longer than 300 —
+          which it can no longer be. So a 400-character URL is not refused: it is silently truncated
+          to 300 and stored as the market's source, pointing somewhere else.<br><br>
+          It is listed because the sentence is in the deployed contract and this catalogue claims to
+          be the whole set. The design notes already argue that unreachable code should be removed;
+          this is one that survived, and it is recorded under Known limits rather than tidied away.`,
+    fix: 'Keep source URLs under 300 characters. The contract will not warn you.' },
   'source url has no host': { group: 'source', plain: 'Nothing between the scheme and the path.', why: 'The host is the part of a source that provenance actually attaches to, so a URL without one cannot be graded at all.', fix: 'Give the full address, including the domain.' },
 
-  'oracle dispute window is too short to stake against': { group: 'stakes', plain: 'Under 60 seconds to object.', why: 'The payout contract re-checks all four of the oracle’s timing parameters itself rather than trusting the address it was handed. An oracle is only as safe as its settings, and the settings are chosen by whoever deployed it.', fix: 'Point this payout contract at an oracle configured within the accepted bounds.' },
+  'oracle dispute window is too short to stake against': { group: 'stakes', plain: 'Under 60 seconds to object.', why: 'The payout contract re-checks all three of the oracle’s timing parameters itself — at both ends, which is where six of these sentences come from — rather than trusting the address it was handed. An oracle is only as safe as its settings, and the settings are chosen by whoever deployed it.', fix: 'Point this payout contract at an oracle configured within the accepted bounds.' },
   'oracle dispute window is too long to stake against': { group: 'stakes', plain: 'Over 7 days to object.', why: 'Legal for an oracle that only publishes findings; too long for one holding staked money behind the window.', fix: 'Use an oracle with a dispute window of 7 days or less.' },
   'oracle expires markets too aggressively to stake against': { group: 'stakes', plain: 'Jams void in under 3 days.', why: 'Voiding refunds everyone, which is a free exit for whoever is losing. A short expiry makes stalling into a strategy.', fix: 'Use an oracle whose expiry is 3 days or more.' },
   'oracle takes too long to expire a jam to stake against': { group: 'stakes', plain: 'Jams take over 30 days to void.', why: 'The refund path has to be reachable, or a jammed market is a permanent hole with money in it.', fix: 'Use an oracle whose expiry is 30 days or less.' },
@@ -1123,7 +1162,6 @@ async function connect() {
     document.getElementById('lamp').classList.add('on');
     document.getElementById('who').textContent = account.slice(0, 6) + '…' + account.slice(-4);
     document.getElementById('connect').textContent = 'Connected';
-    document.getElementById('create').disabled = false;
     say('Connected', 'Your wallet is on Bradbury.', 'ok');
   } catch (e) { say('Could not connect', esc(e.message || String(e)), 'err'); }
 }
@@ -1823,21 +1861,42 @@ function refusePanel(why, rule, extra, hash, actions) {
 
 // ---------- writes ----------
 async function send(fn, args, note, verify, opts = {}) {
-  if (!writeClient) { say('Not connected', 'Connect your wallet first.', 'err'); return false; }
+  // The local rule check runs BEFORE the wallet check, and that ordering is the
+  // whole point. It needs no wallet, no gas and no chain — so someone evaluating
+  // this page without a wallet can still watch a rule fire. The other way round,
+  // the cheapest and clearest demonstration in the project was answered with
+  // "Connect your wallet first", which is the wrong answer to a question the page
+  // could already have answered.
+  const blockedEarly = opts.skipLocal ? '' : localRefusal(fn, args);
+
+  if (!writeClient && !blockedEarly) {
+    say('Not connected',
+      `Connect a wallet to write to the chain.<br><br>You do not need one to evaluate this page:
+       the record below is read live from Bradbury, <b>Fetch the source and hash it here</b> verifies
+       a recorded digest in your own browser, and <b>Try one that gets refused</b> shows a rule firing
+       &mdash; all three work with no wallet at all.`, 'err');
+    return false;
+  }
+
   const addr = opts.to || contractAddress();
-  if (!addr) { say('No address', 'Give the contract address first.', 'err'); return false; }
+  if (!addr && !blockedEarly) { say('No address', 'Give the contract address first.', 'err'); return false; }
   const value = opts.value ? BigInt(opts.value) : BigInt(0);
 
   let hash;
   try {
-    const blocked = opts.skipLocal ? '' : localRefusal(fn, args);
+    const blocked = blockedEarly;
     if (blocked) {
       refusePanel(blocked, ruleFor(blocked),
         `<p class="rnote2">Caught in this page before anything was sent &mdash; no signature, no gas,
           the record untouched.<br><br><b>Do not take this page's word for it.</b> A page saying a
           contract would refuse something is not evidence that it would. Two ways to check, and the
           second is the real one:<br><br>
-          &mdash; the deployed contract refused this exact market on-chain:
+          &mdash; ${blocked === 'link shorteners are not accepted as sources'
+              ? `the deployed contract refused this exact market on-chain:`
+              : `the deployed contract enforces these rules on-chain. The transaction below is a
+                 <em>different</em> refusal &mdash; a shortened source, not the rule above &mdash;
+                 linked because it is a recorded example of the contract refusing, not because it is
+                 this one:`}
           <a href="${EXPLORER}/tx/${REFUSAL_TX}" target="_blank" rel="noopener">that transaction
           &rarr;</a>. The explorer heads it <code>ACCEPTED (ERROR)</code>, and both halves are meant:
           the <em>network accepted</em> the transaction &mdash; all five validators ran it and agreed
@@ -2307,6 +2366,44 @@ setInterval(() => {
   find.addEventListener('input', draw);
   draw();
 })();
+
+// ---------- the no-wallet path ----------
+// Each of these performs the check rather than pointing at it. A reviewer with
+// ten minutes and no testnet GEN is the common case, not the exception.
+const tnote = document.getElementById('t-note');
+
+document.getElementById('t-hash').addEventListener('click', () => {
+  // Find a market that carries a recorded digest and run its own verify button,
+  // so this is the same code path a reader would reach by scrolling.
+  const btn = document.querySelector('.verify[data-digest]');
+  if (!btn) {
+    tnote.innerHTML = `No settled market is loaded yet. Press <b>Re-read from the chain</b> above,
+      then try again &mdash; the digests come from the chain, not from this page.`;
+    return;
+  }
+  btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  tnote.innerHTML = `Fetching that market's source and hashing it <b>in your browser</b>, then
+    comparing against the digest the validators recorded on-chain. Nothing is sent anywhere.`;
+  setTimeout(() => btn.click(), 400);
+});
+
+document.getElementById('t-refuse').addEventListener('click', () => {
+  document.getElementById('bad').click();
+  const form = document.getElementById('create');
+  form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  tnote.innerHTML = `Loaded a market with a shortened link as its source. Press <b>File it</b> and
+    the rule fires immediately &mdash; no wallet, no signature, no gas.`;
+  setTimeout(() => form.click(), 600);
+});
+
+document.getElementById('t-chain').addEventListener('click', () => {
+  const a = contractAddress(), p = payoutAddress();
+  if (a) window.open(`${EXPLORER}/address/${a}`, '_blank', 'noopener');
+  if (p) window.open(`${EXPLORER}/address/${p}`, '_blank', 'noopener');
+  tnote.innerHTML = `Both contracts on GenExplorer. Every transaction below can be opened there and
+    its arguments read under <b>Show data &rarr; Decoded</b> &mdash; so nothing here has to be taken
+    on the strength of a label this page wrote.`;
+});
 
 // Open the record on arrival — a reviewer should not have to press anything.
 load();

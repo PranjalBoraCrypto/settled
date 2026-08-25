@@ -14,7 +14,7 @@ This checks three things:
      sentence shown is the first sentence the contract would raise;
   3. every sentence the mirror can return still exists verbatim in the contract.
 
-Run:  python3 contracts/check_mirror.py
+Run:  python3 check_mirror.py   (from the directory holding settled.py and index.html)
 """
 
 import ast

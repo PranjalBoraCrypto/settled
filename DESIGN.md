@@ -43,9 +43,17 @@ money goes through `StorageType.LATEST_FINAL`. A resolution that could still be
 reorganised is not visible to the payout contract at all.
 
 Those are different guarantees. The first says the humans have stopped arguing;
-the second says the chain has stopped moving. On Bradbury the second costs about
-half an hour, and the live site shows it as a countdown rather than letting a
-refusal look like a fault.
+the second says the chain has stopped moving. On Bradbury the second costs
+somewhere between about 29 and about 40 minutes, measured on real transactions —
+it is not a fixed window.
+
+The live site shows it as a countdown rather than letting a refusal look like a
+fault, but the countdown is explicitly an **estimate**. An earlier version, once
+its guess elapsed, announced "Both locks open" — asserting a fact it had no way
+to check. It sent a reader to a settle that was correctly refused while telling
+them the way was clear. Nothing in the browser can read finalized chain state, so
+the page now says the estimate has elapsed and settling *should* work, and that a
+refusal means the window simply has not passed yet.
 
 ### The hole this exposed
 
@@ -188,7 +196,8 @@ money. Roughly twenty-five findings. The ones worth recording:
 the future a market could be set to resolve. A market created with a nonsense
 value could never be resolved and never expired — no exit, and anything staked on
 it gone. Every timing parameter is now bounded at both ends, in both contracts,
-and the payout contract independently re-checks all four of the oracle's.
+and the payout contract independently re-checks all three of the oracle's — at
+both ends, which is six separate refusals.
 
 **A losing bet could be cancelled for free.** If a source went down during an
 appeal, every validator saw the same failure, agreed unanimously, and the market
@@ -235,7 +244,7 @@ consensus passed and the feature reported a plausible outage for every input
 forever. Only executing the contract found it. Every module-level name used inside
 a consensus block is now bound to a local before the closure is built, so a
 missing name raises loudly, and `check_names.py` in this repo checks it in under a
-second.
+second — run it with no arguments and it finds both contracts itself.
 
 The last round found no bug that predated it. Every finding was either in tooling
 or in code added while fixing an earlier round — which is not the same as finding
@@ -347,10 +356,11 @@ Duplicating contract logic in a client is normally a bad trade, so it is
 constrained in two ways:
 
 - **The mirror only ever refuses. It never approves.** Passing it means nothing;
-  the contract still runs all sixty-seven checks and is the only thing that
-  decides. There is no path where the page's opinion admits something the
+  the contract runs its own checks and is the only thing that decides. (Sixty-seven
+  is the number of distinct refusal sentences across both contracts, not the number
+  any single call evaluates.) There is no path where the page's opinion admits something the
   contract would reject.
-- **Drift is detected mechanically.** `contracts/check_mirror.py` parses
+- **Drift is detected mechanically.** `check_mirror.py` parses
   `settled.py` and `index.html` and fails if the shortener list, the character
   and duration limits, the sentences, or *the order the checks fire in* have
   diverged. Order matters: if the mirror tested the URL before the market id, it

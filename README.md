@@ -234,11 +234,14 @@ reproduce the same way.
 | What was attempted | Result |
 | --- | --- |
 | A market whose source was a `bit.ly` link | [`0x8407a415…`](https://explorer-bradbury.genlayer.com/tx/0x8407a415c50b8e14f05fd9cc708601e42a8c107eab7eb6b0545cf3ed5317f745) — *"link shorteners are not accepted as sources"* |
-| A market creator staking on its own market | refused — *"the market creator cannot stake on their own market"* |
-| Staking after the book closed | refused — the embargo had lifted |
+| A market creator staking on its own market | refused — *"the market creator cannot stake on their own market"* — observed during the run, transaction not recorded here |
+| Staking after the book closed | refused — the embargo had lifted — observed during the run, transaction not recorded here |
 
-The losing wallet is worth looking at too: the site shows it in red, states it
-backed NO against a YES finding, and offers nothing to claim.
+The losing side is shown honestly rather than quietly: connected with the NO
+backer's wallet, the site marks the position in red, states that it backed NO
+against a YES finding, and offers nothing to claim. That view needs that wallet,
+so it is a design note rather than something a reader can verify from here — the
+checkable part is the stakes and the settlement, both linked above.
 
 ---
 
@@ -251,7 +254,7 @@ source:
 grep -c 'raise gl.vm.UserError' settled.py payout.py    # 57 + 35 = 92
 ```
 
-**All 67 are catalogued** — grouped, searchable, and each explained — on the live
+**All 67 are catalogued** — grouped, searchable, and most explained at length — on the live
 site under **[The rules](https://pranjalboracrypto.github.io/settled/#rules)**.
 Not a selection of the interesting ones: the whole set, because an incomplete
 list invites you to assume the omissions do not exist.
@@ -270,9 +273,12 @@ attempt to break the contract succeeded.
 | [`payout.py`](payout.py) | The consumer contract that stakes and pays. Deployed as-is. |
 | [`DESIGN.md`](DESIGN.md) | Why the contracts are shaped this way, **and what broke when they were attacked.** |
 | [`index.html`](index.html) | The whole interface. One file, no build step, `genlayer-js` bundled and committed. |
+| [`check_names.py`](check_names.py) | Proves every name used inside a consensus block is bound in that block's own scope — the failure that got v1 rejected, caught in under a second. |
 | [`check_mirror.py`](check_mirror.py) | Fails if the page's copy of the entry rules has drifted from the contract's — values, sentences, **and the order they fire in**. |
-| [`feed.json`](feed.json) | The demonstration source, **as it reads now** — hashes to the digest recorded at `resolve()`. |
+| [`feed.json`](feed.json) | The **first** run's source, **as it reads now** — hashes to the digest recorded at `resolve()`. |
 | [`feed.before.json`](feed.before.json) | The same source **as it read at `snapshot()`**, before the event. Hashes to the earlier digest. Committed so both readings can be checked, not just the later one. |
+| [`run2.json`](run2.json) · [`run2.before.json`](run2.before.json) | The **second** run's source, after and before its event. Both hash to the digests recorded on-chain for `payout-demo-3`. |
+| [`genlayer-js.browser.js`](genlayer-js.browser.js) | The GenLayer client, bundled and committed so the page has no build step and no CDN. |
 
 ---
 
@@ -284,7 +290,8 @@ them:
 
 - **Funds could be locked forever, three separate ways.** Every timing parameter
   is now bounded at both ends, in both contracts, and the payout contract
-  independently re-checks all four of the oracle's.
+  independently re-checks all three of the oracle's — at both ends, which is six
+  separate refusals.
 - **A losing bet could be cancelled for free.** An outage during an appeal made
   every validator agree the market was unresolvable — which refunds everyone.
 - **The escape hatch was itself a theft path.** A jam now falls back to the
@@ -307,6 +314,14 @@ lesson: each fix is new surface, and surface is where bugs live.
 ## Known limits
 
 Stated rather than left to be discovered. Full list in [`DESIGN.md`](DESIGN.md).
+
+- **One of the 67 refusals cannot fire, and over-long URLs are silently truncated.**
+  `create_market` sanitises the source URL with a helper that already clamps it to
+  300 characters, then tests whether it exceeds 300 — which it no longer can. A
+  400-character URL is not rejected; it is cut to 300 and stored, pointing
+  somewhere else. Found while auditing the rule catalogue, after deployment. It is
+  listed on the site as unreachable rather than removed, because a catalogue that
+  claims to be complete has to include the embarrassing entries too.
 
 - **A mutable source is published by somebody, and that somebody can lie.** The
   creator is barred from staking and everything is recorded before anyone stakes,
