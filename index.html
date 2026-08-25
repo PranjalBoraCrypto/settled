@@ -1769,7 +1769,10 @@ async function send(fn, args, note, verify, opts = {}) {
       const force = document.getElementById('force-tx');
       if (force) force.addEventListener('click', () => {
         force.disabled = true;
-        send(fn, args, note, verify, { ...opts, to: addr, skipLocal: true });
+        // Carry the prediction across. The receipt will not name the rule, but we
+        // know which one we expected — so the panel can show the chain confirming
+        // the exact sentence this page called in advance.
+        send(fn, args, note, verify, { ...opts, to: addr, skipLocal: true, expect: blocked });
       });
       return false;
     }
@@ -1798,20 +1801,29 @@ async function send(fn, args, note, verify, opts = {}) {
 
       console.log('[Settled] full receipt for ' + hash, receipt);
 
-      refusePanel(why, rule,
-        rule ? '' : `<p class="plain">A rule fired. Nothing was changed and nothing was lost.</p>
+      refusePanel(why || opts.expect || '', rule,
+        (opts.expect ? `<p class="rnote2"><b>Confirmed on-chain.</b> This page named that rule before
+            the transaction was sent; the network has now refused it independently. Five validators
+            each ran the call and returned the same result &mdash; which is what identical
+            <code>validatorResultHash</code> values mean &mdash; and the execution came back
+            <code>FINISHED_WITH_ERROR</code>.<br><br>The explorer may head this
+            <code>ACCEPTED</code> in green for the first half hour. That is the consensus round still
+            revealing, not a contradiction: once the finalization window closes it reads
+            <code>ACCEPTED (ERROR)</code>. Accepted describes the network; the error describes the
+            contract.</p>` : '') +
+        (rule ? '' : `<p class="plain">A rule fired. Nothing was changed and nothing was lost.</p>
                  <p class="rwhy"><span>Why there is no sentence here</span>A GenLayer receipt carries
                     the transaction's calldata, a status, and a <em>hash</em> of the result &mdash; one
                     per validator, identical when they agree. The message itself is not in it, and a
-                    hash cannot be read back into words. That is why this interface asks a node to run
-                    the call read-only <em>before</em> sending it: a refusal caught there is quoted
-                    exactly. This one got past that check.</p>
+                    hash cannot be read back into words. Nor will a node simulate a write method to
+                    say it in advance. So this page checks what it can before you sign &mdash; and
+                    this refusal was not one of the checks it holds.</p>
                  ${loose ? `<p class="rwhy"><span>Detail</span>The only text in the receipt that is not
                     an echo of what was sent:</p><blockquote class="said">${esc(loose)}</blockquote>` : ''}
                  <p class="rfix"><span>What to do</span>Open the transaction below &mdash; the explorer
                     resolves the result hash and shows the contract's own message. Paste that sentence
                     into the search box under The rules to read why it exists.</p>
-                 <p><button class="ghost" id="cp-receipt" type="button">Copy the raw receipt</button></p>`,
+                 <p><button class="ghost" id="cp-receipt" type="button">Copy the raw receipt</button></p>`),
         hash);
 
       // An unrecognised refusal is a gap in this interface, not in the chain.
