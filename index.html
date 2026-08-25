@@ -91,7 +91,10 @@
   }
   button:hover:not(:disabled) { background: var(--ink); color: var(--paper) }
   button:disabled { opacity: .35; cursor: not-allowed }
-  button.seal { background: var(--seal); border-color: var(--seal); color: #fff }
+  /* Text was hard-coded white, which is right on the light theme's deep cobalt
+     but sits at about 3:1 on the dark theme's paler one. var(--leaf) resolves to
+     white on light and near-black on dark, so the label stays readable in both. */
+  button.seal { background: var(--seal); border-color: var(--seal); color: var(--leaf) }
   button.seal:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); color: var(--paper) }
   button.quiet { border-color: var(--rule-2); color: var(--ink-2) }
   button.quiet:hover:not(:disabled) { background: var(--ink-2); color: var(--paper) }
@@ -1784,7 +1787,7 @@ async function send(fn, args, note, verify, opts = {}) {
           skips this page's check entirely and puts the transaction in front of the validators. It
           costs a little gas and comes back <code>FINISHED_WITH_ERROR</code>, which is the point.</p>`,
         null,
-        `<button class="ghost" id="force-tx" type="button">Send it to the chain anyway</button>`);
+        `<button class="seal" id="force-tx" type="button">Send it to the chain anyway</button>`);
 
       const force = document.getElementById('force-tx');
       if (force) force.addEventListener('click', () => {
