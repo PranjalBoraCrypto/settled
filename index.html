@@ -1753,7 +1753,11 @@ async function send(fn, args, note, verify, opts = {}) {
           the record untouched. <b>Do not take this page's word for it.</b> The contract enforces the
           same rule, and refused this exact market on-chain:
           <a href="${EXPLORER}/tx/${REFUSAL_TX}" target="_blank" rel="noopener">that transaction
-          &rarr;</a> &mdash; five validators, unanimous, <code>FINISHED_WITH_ERROR</code>.</p>`, null);
+          &rarr;</a><br><br>The explorer heads it <code>ACCEPTED (ERROR)</code>, and both halves are
+          meant: the <em>network accepted</em> the transaction &mdash; all five validators ran it and
+          agreed on the outcome, which is why their result hashes are identical &mdash; and the
+          <em>contract refused</em> what it was asked to do. Consensus succeeding on a refusal is the
+          system working, not failing.</p>`, null);
       return false;
     }
 
