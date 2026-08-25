@@ -1,0 +1,7 @@
+{
+  "feed": "settled-demo",
+  "event": "settled-v2-payout-live",
+  "status": "pending",
+  "note": "The Settled v2 payout contract has not yet been confirmed live on Testnet Bradbury.",
+  "updated": "before"
+}

@@ -49,6 +49,33 @@ source into your own browser, hashes it there, and compares.
 
 A recorded number anyone can reproduce is evidence. A screenshot is not.
 
+### Both readings, and the fact that they differ
+
+The interesting claim is not that one digest matches. It is that the source
+**moved between two readings**, and the chain recorded both. Reproduce both:
+
+```bash
+BASE=https://raw.githubusercontent.com/PranjalBoraCrypto/settled/main
+
+# 0960f3815bf588ec2e27bd1cc646111a75f33c754e3215ff88f600b7f8b77d76
+curl -s $BASE/feed.before.json | keccak-256sum
+
+# 83cd5291cfd2c1d644015037bdd09a1276c3c4fda085511fbdd78094846a08e5
+curl -s $BASE/feed.json        | keccak-256sum
+```
+
+`feed.before.json` is committed for exactly this reason. It is the byte-identical
+content the source served when `snapshot()` ran, and without it the earlier digest
+is a number you would have to take on faith. Two reproducible hashes and one
+on-chain `source_changed: true` is the whole argument:
+
+- the validators agreed on what the source said **before** anyone knew the answer,
+- they agreed on what it said **after**,
+- and the contract noticed, on-chain, that those were not the same thing.
+
+Nothing here asks you to believe the operator. Both files are in this repository;
+hash them yourself.
+
 ---
 
 ## What review asked for
@@ -183,7 +210,8 @@ attempt to break the contract succeeded.
 | [`DESIGN.md`](DESIGN.md) | Why the contracts are shaped this way, **and what broke when they were attacked.** |
 | [`index.html`](index.html) | The whole interface. One file, no build step, `genlayer-js` bundled and committed. |
 | [`check_mirror.py`](check_mirror.py) | Fails if the page's copy of the entry rules has drifted from the contract's — values, sentences, **and the order they fire in**. |
-| [`feed.json`](feed.json) | The demonstration source. |
+| [`feed.json`](feed.json) | The demonstration source, **as it reads now** — hashes to the digest recorded at `resolve()`. |
+| [`feed.before.json`](feed.before.json) | The same source **as it read at `snapshot()`**, before the event. Hashes to the earlier digest. Committed so both readings can be checked, not just the later one. |
 
 ---
 

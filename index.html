@@ -1133,11 +1133,26 @@ async function marketStatus(id) {
   } catch (e) { return null; }
 }
 
-async function load() {
+// `quiet` reloads leave the notice panel alone. The one-second ticker calls
+// load() the moment any countdown hits zero, and a plain load() replaces the
+// notice with "Reading" and then hides it — so a reader studying a refusal,
+// including the "Send it to the chain anyway" button, would watch the whole
+// panel vanish because an unrelated market's timer elapsed.
+//
+// LOADING is an in-flight guard. Without it the ticker fires a new load()
+// every second while one is outstanding, and a later call can blank POOLS
+// between an earlier call's read and its render — drawing the record with no
+// stakes and announcing that the payout contract cannot be read, for a
+// contract being read perfectly well.
+let LOADING = false;
+
+async function load(quiet = false) {
   const addr = contractAddress();
   if (!addr) { say('No address', 'Give the contract address first.', 'err'); return; }
+  if (LOADING) return;
+  LOADING = true;
   try {
-    say('Reading', 'Fetching the record from the chain.');
+    if (!quiet) say('Reading', 'Fetching the record from the chain.');
     const data = await readClient.readContract({ address: addr, functionName: 'get_markets', args: [] });
 
     // Pools are optional: the oracle stands alone, and a reviewer who has only
@@ -1172,14 +1187,19 @@ async function load() {
     }
 
     render(data || {});
-    hush();
+    if (!quiet) hush();
     const paddr2 = payoutAddress();
     document.getElementById('onchain').innerHTML =
       `<a href="${EXPLORER}/address/${esc(addr)}" target="_blank" rel="noopener">Oracle on-chain &rarr;</a>` +
       (paddr2 ? ` &nbsp;·&nbsp; <a href="${EXPLORER}/address/${esc(paddr2)}" target="_blank" rel="noopener">Stakes on-chain &rarr;</a>` : '');
-  } catch (e) { say('Could not read', esc(e.message || String(e)), 'err'); }
+  } catch (e) {
+    // A quiet reload failing must not shout over whatever the reader is reading.
+    if (!quiet) say('Could not read', esc(e.message || String(e)), 'err');
+  } finally {
+    LOADING = false;
+  }
 }
-document.getElementById('load').addEventListener('click', load);
+document.getElementById('load').addEventListener('click', () => load());
 
 /* The eight things that have to happen, and which have. A reviewer landing on a
    half-finished market should be able to see the shape of the process without
@@ -1458,7 +1478,7 @@ function render(markets) {
   wallet(markets);
   const box = document.getElementById('records');
   const rows = Object.entries(markets);
-  document.getElementById('count').textContent = rows.length ? `${rows.length} entries` : '';
+  document.getElementById('count').textContent = rows.length ? `${rows.length} ${rows.length === 1 ? 'entry' : 'entries'}` : '';
 
   if (!rows.length) {
     box.innerHTML = `<div class="empty"><p>Nothing on the record yet. Put the first question below.</p></div>`;
@@ -2080,13 +2100,27 @@ document.getElementById('records').addEventListener('click', async (ev) => {
     const side = act === 'back-yes' ? 'YES' : 'NO';
     const amt = prompt(`How much GEN on ${side}?`, '0.003');
     if (!amt) return;
-    let wei;
-    try {
-      const [w, f = ''] = String(amt).trim().split('.');
-      wei = BigInt(w || 0) * GEN + BigInt((f + '000000000000000000').slice(0, 18));
-    } catch { say('Not a number', 'Enter an amount like 0.003', 'err'); return; }
+    const raw = String(amt).trim();
+
+    // Splitting on '.' and BigInt-ing the halves accepted things it should not:
+    // "-0.5" gave BigInt("-0") === 0n for the whole part, so the sign vanished
+    // and the fraction was added as a POSITIVE 0.5 GEN, sailing past the
+    // `wei <= 0n` guard. "0.5.5" quietly staked 0.5 while the notice said
+    // "Staking 0.5.5 GEN". Validate the shape first, then convert.
+    if (!/^\d+(\.\d+)?$/.test(raw)) {
+      say('Not an amount', `<code>${esc(raw)}</code> is not a positive number. Enter something like
+        <code>0.003</code> &mdash; digits, and at most one decimal point.`, 'err');
+      return;
+    }
+    const [w, f = ''] = raw.split('.');
+    if (f.length > 18) {
+      say('Too fine', `GEN divides to eighteen decimal places; that has ${f.length}.`, 'err');
+      return;
+    }
+    const wei = BigInt(w || 0) * GEN + BigInt((f + '000000000000000000').slice(0, 18));
     if (wei <= 0n) { say('Nothing staked', 'A stake has to carry value.', 'err'); return; }
-    await send('back', [id, side], `Staking ${amt} GEN on ${side}. Your wallet will ask you to send the value.`,
+
+    await send('back', [id, side], `Staking ${esc(raw)} GEN on ${side}. Your wallet will ask you to send the value.`,
       null, { to: P, value: wei, slow: false });
     return;
   }
@@ -2157,6 +2191,8 @@ document.getElementById('bad').addEventListener('click', () => {
     to be nameable up front or the source is not a source.`, 'ok');
 });
 
+let GATE_FIRED = false;
+
 // One interval for every countdown on the page. Redrawing the record each second
 // would fight with anything the reader is doing; only the digits change.
 setInterval(() => {
@@ -2167,8 +2203,11 @@ setInterval(() => {
     el.textContent = clock(left);
     if (left <= 0) expired = true;
   });
-  // The moment a gate opens, reload so the button it was blocking comes alive.
-  if (expired) load();
+  // The moment a gate opens, refresh so the button it was blocking comes alive —
+  // quietly, because the reader may be part-way through a notice, and guarded so
+  // a gate that stays expired cannot re-fire this every second.
+  if (expired && !GATE_FIRED) { GATE_FIRED = true; load(true).finally(() => { GATE_FIRED = false; }); }
+  if (!expired) GATE_FIRED = false;
 }, 1000);
 
 // ---------- the rulebook ----------
